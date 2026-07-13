@@ -2,7 +2,6 @@
 name: 버그
 about: 버그 리포트
 title: "[fix] "
-labels: []
 ---
 
 ## 현상
