@@ -1,5 +1,5 @@
 ---
-name: 기능
+name: 기능 요청
 about: 새로운 기능 작업
 title: "[feat] "
 ---
