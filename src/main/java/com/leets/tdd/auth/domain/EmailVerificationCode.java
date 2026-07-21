@@ -37,6 +37,10 @@ public class EmailVerificationCode {
     @Column(nullable = false)
     private EmailPurpose purpose;
 
+    /**
+     * 인증코드의 BCrypt 해시값. 평문 코드는 저장하지 않는다(DB 조회 권한 노출 시
+     * 유효시간 내 코드를 그대로 재사용할 수 있는 문제 방지). 비교는 PasswordEncoder.matches()로 한다.
+     */
     @Column(nullable = false)
     private String code;
 

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -37,6 +38,9 @@ class EmailVerificationServiceTest {
 
     @Mock
     private MailService mailService;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private EmailVerificationService emailVerificationService;
@@ -109,9 +113,10 @@ class EmailVerificationServiceTest {
     void verifyCode_mismatch() {
         VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "111111", null);
         EmailVerificationCode stored = new EmailVerificationCode(
-                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "123456", LocalDateTime.now().plusMinutes(5));
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
         when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
                 .thenReturn(Optional.of(stored));
+        when(passwordEncoder.matches("111111", "hashed-123456")).thenReturn(false);
 
         assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
                 .isInstanceOf(AuthException.class)
@@ -123,9 +128,10 @@ class EmailVerificationServiceTest {
     void verifyCode_defaultsToSignupPurpose() {
         VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
         EmailVerificationCode stored = new EmailVerificationCode(
-                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "123456", LocalDateTime.now().plusMinutes(5));
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
         when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
                 .thenReturn(Optional.of(stored));
+        when(passwordEncoder.matches("123456", "hashed-123456")).thenReturn(true);
 
         assertThatCode(() -> emailVerificationService.verifyCode(request)).doesNotThrowAnyException();
 
@@ -138,9 +144,10 @@ class EmailVerificationServiceTest {
         VerifyEmailCodeRequest request =
                 new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", EmailPurpose.RESET_PASSWORD);
         EmailVerificationCode stored = new EmailVerificationCode(
-                "abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD, "123456", LocalDateTime.now().plusMinutes(5));
+                "abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD, "hashed-123456", LocalDateTime.now().plusMinutes(5));
         when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD))
                 .thenReturn(Optional.of(stored));
+        when(passwordEncoder.matches("123456", "hashed-123456")).thenReturn(true);
 
         emailVerificationService.verifyCode(request);
 

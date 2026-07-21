@@ -9,6 +9,7 @@ import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.repository.EmailVerificationRepository;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -29,6 +30,7 @@ public class EmailVerificationService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
+    private final PasswordEncoder passwordEncoder;
 
     public void sendVerificationCode(EmailVerificationRequest request) {
         String email = request.email();
@@ -62,7 +64,7 @@ public class EmailVerificationService {
             throw new AuthException(AuthErrorCode.CODE_EXPIRED);
         }
 
-        if (!verification.getCode().equals(request.code())) {
+        if (!passwordEncoder.matches(request.code(), verification.getCode())) {
             throw new AuthException(AuthErrorCode.CODE_MISMATCH);
         }
 
