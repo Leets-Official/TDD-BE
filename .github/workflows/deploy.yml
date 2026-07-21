@@ -93,6 +93,7 @@ jobs:
             mkdir -p '$EC2_DEPLOY_PATH/release'
             rm -rf '$EC2_DEPLOY_PATH/release'/*
             tar -xzf /tmp/tdd-release.tar.gz -C '$EC2_DEPLOY_PATH/release'
+            rm -f /tmp/tdd-release.tar.gz
             install -m 600 /tmp/tdd-runtime.env '$EC2_DEPLOY_PATH/.env'
             rm -f /tmp/tdd-runtime.env
             docker build -t tdd-api:latest '$EC2_DEPLOY_PATH/release'
