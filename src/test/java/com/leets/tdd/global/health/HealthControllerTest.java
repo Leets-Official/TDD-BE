@@ -25,4 +25,10 @@ class HealthControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("UP"));
     }
+
+    @Test
+    void 공개되지_않은_엔드포인트는_인증을_요구한다() throws Exception {
+        mockMvc.perform(get("/api/v1/private"))
+                .andExpect(status().isForbidden());
+    }
 }
