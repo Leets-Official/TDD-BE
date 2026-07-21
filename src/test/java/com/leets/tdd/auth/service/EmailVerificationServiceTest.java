@@ -95,6 +95,21 @@ class EmailVerificationServiceTest {
     }
 
     @Test
+    @DisplayName("이미 검증에 성공한 코드면 만료 전이라도 다시 확인 시 예외가 발생한다")
+    void verifyCode_alreadyVerified() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
+        EmailVerificationCode alreadyVerified = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
+        alreadyVerified.markVerified();
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(alreadyVerified));
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.CODE_ALREADY_VERIFIED.getMessage());
+    }
+
+    @Test
     @DisplayName("코드가 만료되었으면 확인 시 예외가 발생한다")
     void verifyCode_expired() {
         VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
