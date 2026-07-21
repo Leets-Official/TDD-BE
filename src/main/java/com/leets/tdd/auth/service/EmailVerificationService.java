@@ -12,20 +12,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
-import java.util.regex.Pattern;
 
 /**
  * 이슈 #23 - 학교 이메일 인증 메일 발송 API
- * 시나리오: 이메일 형식 검증 -> (SIGNUP인 경우) 가입 여부 검증 -> 요청 횟수 검증
- *          -> 6자리 코드 생성/저장(TTL 5분) -> 메일 발송
+ * 시나리오: (SIGNUP인 경우) 가입 여부 검증 -> 요청 횟수 검증 -> 6자리 코드 생성/저장(TTL 5분) -> 메일 발송
+ * 이메일 형식(학교 이메일) 검증은 EmailVerificationRequest의 @Pattern에서 처리하고,
+ * 실패 시 GlobalExceptionHandler가 fieldErrors로 응답한다.
  */
 @Service
 @RequiredArgsConstructor
 public class EmailVerificationService {
 
-    // TODO: 학교 이메일 도메인이 여러 개라면 목록으로 관리하도록 수정
-    private static final Pattern SCHOOL_EMAIL_PATTERN =
-            Pattern.compile("^[a-zA-Z0-9._%+-]+@gachon\\.ac\\.kr$");
     private static final int CODE_LENGTH = 6;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -36,8 +33,6 @@ public class EmailVerificationService {
     public void sendVerificationCode(EmailVerificationRequest request) {
         String email = request.email();
         EmailPurpose purpose = request.purpose();
-
-        validateSchoolEmail(email);
 
         if (purpose == EmailPurpose.SIGNUP) {
             validateNotAlreadyRegistered(email);
@@ -72,12 +67,6 @@ public class EmailVerificationService {
         }
 
         emailVerificationRepository.markVerified(verification);
-    }
-
-    private void validateSchoolEmail(String email) {
-        if (email == null || !SCHOOL_EMAIL_PATTERN.matcher(email).matches()) {
-            throw new AuthException(AuthErrorCode.INVALID_SCHOOL_EMAIL);
-        }
     }
 
     private void validateNotAlreadyRegistered(String email) {

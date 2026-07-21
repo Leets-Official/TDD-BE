@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Pattern;
 public record VerifyEmailCodeRequest(
 
         @NotBlank(message = "이메일을 입력해주세요.")
+        @Pattern(regexp = "^[\\w.-]+@gachon\\.ac\\.kr$", message = "학교 이메일 형식이 아닙니다.")
         String email,
 
         @NotBlank(message = "인증코드를 입력해주세요.")

@@ -42,18 +42,6 @@ class EmailVerificationServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Test
-    @DisplayName("학교 이메일 형식이 아니면 예외가 발생한다")
-    void invalidSchoolEmail() {
-        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gmail.com", EmailPurpose.SIGNUP);
-
-        assertThatThrownBy(() -> emailVerificationService.sendVerificationCode(request))
-                .isInstanceOf(AuthException.class)
-                .hasMessage(AuthErrorCode.INVALID_SCHOOL_EMAIL.getMessage());
-
-        verifyNoInteractions(mailService);
-    }
-
-    @Test
     @DisplayName("SIGNUP 목적으로 이미 가입된 이메일이면 예외가 발생한다")
     void alreadyRegisteredEmail() {
         EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
