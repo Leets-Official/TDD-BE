@@ -1,7 +1,9 @@
 package com.leets.tdd.auth.service;
 
 import com.leets.tdd.auth.domain.EmailPurpose;
+import com.leets.tdd.auth.domain.EmailVerificationCode;
 import com.leets.tdd.auth.dto.EmailVerificationRequest;
+import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.exception.AuthErrorCode;
 import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.repository.EmailVerificationRepository;
@@ -13,6 +15,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -61,7 +67,7 @@ class EmailVerificationServiceTest {
     }
 
     @Test
-    @DisplayName("1시간 내 요청 횟수(5회)를 초과하면 예외가 발생한다")
+    @DisplayName("5분 내 요청 횟수(3회)를 초과하면 예외가 발생한다")
     void exceedRequestLimit() {
         EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD);
         when(emailVerificationRepository.isRequestLimitExceeded("abcd@gachon.ac.kr")).thenReturn(true);
@@ -82,5 +88,74 @@ class EmailVerificationServiceTest {
 
         verify(emailVerificationRepository).saveCode(eq("abcd@gachon.ac.kr"), eq(EmailPurpose.RESET_PASSWORD), anyString());
         verify(mailService).sendVerificationCode(eq("abcd@gachon.ac.kr"), anyString());
+    }
+
+    @Test
+    @DisplayName("발송된 코드가 없으면 확인 시 예외가 발생한다")
+    void verifyCode_noCodeRequested() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.CODE_MISMATCH.getMessage());
+    }
+
+    @Test
+    @DisplayName("코드가 만료되었으면 확인 시 예외가 발생한다")
+    void verifyCode_expired() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
+        EmailVerificationCode expired = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "123456", LocalDateTime.now().minusMinutes(1));
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(expired));
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.CODE_EXPIRED.getMessage());
+    }
+
+    @Test
+    @DisplayName("코드가 일치하지 않으면 확인 시 예외가 발생한다")
+    void verifyCode_mismatch() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "111111", null);
+        EmailVerificationCode stored = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "123456", LocalDateTime.now().plusMinutes(5));
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.CODE_MISMATCH.getMessage());
+    }
+
+    @Test
+    @DisplayName("purpose를 생략하면 SIGNUP 코드로 확인한다")
+    void verifyCode_defaultsToSignupPurpose() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
+        EmailVerificationCode stored = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "123456", LocalDateTime.now().plusMinutes(5));
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(stored));
+
+        assertThatCode(() -> emailVerificationService.verifyCode(request)).doesNotThrowAnyException();
+
+        verify(emailVerificationRepository).markVerified(stored);
+    }
+
+    @Test
+    @DisplayName("purpose가 RESET_PASSWORD이면 해당 목적의 코드로 확인한다")
+    void verifyCode_resetPasswordPurpose() {
+        VerifyEmailCodeRequest request =
+                new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", EmailPurpose.RESET_PASSWORD);
+        EmailVerificationCode stored = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD, "123456", LocalDateTime.now().plusMinutes(5));
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.RESET_PASSWORD))
+                .thenReturn(Optional.of(stored));
+
+        emailVerificationService.verifyCode(request);
+
+        verify(emailVerificationRepository).markVerified(stored);
     }
 }

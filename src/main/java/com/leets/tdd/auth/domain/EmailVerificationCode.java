@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
  * 이메일 인증코드 발송 기록.
  * Redis 없이 MySQL로 처리하기 위해, TTL은 별도 만료 기능이 아니라
  * expiresAt 컬럼과 현재 시각을 비교해서 흉내낸다.
- * 요청 한도(1시간 5회)도 이 테이블의 최근 1시간 row 개수로 센다.
+ * 요청 한도(5분 3회)도 이 테이블의 최근 5분 row 개수로 센다.
  */
 @Entity
 @Getter
@@ -46,6 +46,13 @@ public class EmailVerificationCode {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * 인증코드 검증에 성공한 시각. ERD의 verified_time(최대 10분)에 대응.
+     * null이면 아직 검증되지 않은 코드.
+     */
+    @Column
+    private LocalDateTime verifiedAt;
+
     public EmailVerificationCode(String email, EmailPurpose purpose, String code, LocalDateTime expiresAt) {
         this.email = email;
         this.purpose = purpose;
@@ -56,5 +63,9 @@ public class EmailVerificationCode {
 
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(expiresAt);
+    }
+
+    public void markVerified() {
+        this.verifiedAt = LocalDateTime.now();
     }
 }

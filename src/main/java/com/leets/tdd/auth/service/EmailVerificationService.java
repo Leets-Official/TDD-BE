@@ -1,7 +1,9 @@
 package com.leets.tdd.auth.service;
 
 import com.leets.tdd.auth.domain.EmailPurpose;
+import com.leets.tdd.auth.domain.EmailVerificationCode;
 import com.leets.tdd.auth.dto.EmailVerificationRequest;
+import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.exception.AuthErrorCode;
 import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.repository.EmailVerificationRepository;
@@ -23,7 +25,7 @@ public class EmailVerificationService {
 
     // TODO: 학교 이메일 도메인이 여러 개라면 목록으로 관리하도록 수정
     private static final Pattern SCHOOL_EMAIL_PATTERN =
-            Pattern.compile("^[\\w.-]+@gachon\\.ac\\.kr$");
+            Pattern.compile("^[a-zA-Z0-9._%+-]+@gachon\\.ac\\.kr$");
     private static final int CODE_LENGTH = 6;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -47,6 +49,29 @@ public class EmailVerificationService {
         emailVerificationRepository.saveCode(email, purpose, code);
 
         mailService.sendVerificationCode(email, code);
+    }
+
+    /**
+     * 인증코드 확인.
+     * purpose를 생략하면(회원가입 흐름 명세) SIGNUP으로 간주하고,
+     * purpose가 있으면(비밀번호 재설정 흐름 명세) 해당 purpose로 저장된 코드와 비교한다.
+     */
+    public void verifyCode(VerifyEmailCodeRequest request) {
+        String email = request.email();
+        EmailPurpose purpose = request.purposeOrDefault();
+
+        EmailVerificationCode verification = emailVerificationRepository.findLatest(email, purpose)
+                .orElseThrow(() -> new AuthException(AuthErrorCode.CODE_MISMATCH));
+
+        if (verification.isExpired()) {
+            throw new AuthException(AuthErrorCode.CODE_EXPIRED);
+        }
+
+        if (!verification.getCode().equals(request.code())) {
+            throw new AuthException(AuthErrorCode.CODE_MISMATCH);
+        }
+
+        emailVerificationRepository.markVerified(verification);
     }
 
     private void validateSchoolEmail(String email) {
