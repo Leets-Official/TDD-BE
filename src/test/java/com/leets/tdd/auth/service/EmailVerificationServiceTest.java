@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -188,5 +189,45 @@ class EmailVerificationServiceTest {
         emailVerificationService.verifyCode(request);
 
         verify(emailVerificationRepository).markVerified(stored);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 인증 성공(verifiedAt) 후 15분 이내면 true를 반환한다")
+    void isRecentlyVerifiedForSignup_withinWindow() {
+        EmailVerificationCode verified = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
+        verified.markVerified();
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(verified));
+
+        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isTrue();
+    }
+
+    @Test
+    @DisplayName("인증된 적이 없으면 false를 반환한다")
+    void isRecentlyVerifiedForSignup_notVerified() {
+        EmailVerificationCode notVerified = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(notVerified));
+
+        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isFalse();
+    }
+
+    @Test
+    @DisplayName("발송 기록 자체가 없으면 false를 반환한다")
+    void isRecentlyVerifiedForSignup_noRecord() {
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.empty());
+
+        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isFalse();
+    }
+
+    @Test
+    @DisplayName("회원가입 완료 시 인증 기록을 삭제(consume)한다")
+    void consumeSignupVerification() {
+        emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr");
+
+        verify(emailVerificationRepository).deleteCode("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
     }
 }

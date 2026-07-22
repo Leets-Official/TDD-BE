@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -28,6 +30,12 @@ public class EmailVerificationService {
 
     private static final int CODE_LENGTH = 6;
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    /**
+     * 이메일 인증 완료(verifiedAt) 후 회원가입(프로필 등록)을 마쳐야 하는 제한 시간.
+     * user 도메인의 /users/me(프로필 등록)에서 이 시간 내에 완료됐는지 확인하는 데 쓴다.
+     */
+    private static final Duration SIGNUP_COMPLETION_WINDOW = Duration.ofMinutes(15);
 
     /**
      * 이메일 단위로 "요청 횟수 확인 + 코드 저장"을 하나의 임계 구역으로 묶기 위한 락.
@@ -98,6 +106,26 @@ public class EmailVerificationService {
         }
 
         emailVerificationRepository.markVerified(verification);
+    }
+
+    /**
+     * user 도메인(/users/me)에서 회원가입을 마무리하기 전에 호출한다.
+     * SIGNUP 목적으로 인증에 성공(verifiedAt != null)했고, 그 시각으로부터 15분이 지나지
+     * 않았으면 true. signup_token 같은 별도 토큰 없이, 이 DB 조회만으로 신원을 확인한다.
+     */
+    public boolean isRecentlyVerifiedForSignup(String email) {
+        return emailVerificationRepository.findLatest(email, EmailPurpose.SIGNUP)
+                .filter(v -> v.getVerifiedAt() != null)
+                .filter(v -> LocalDateTime.now().isBefore(v.getVerifiedAt().plus(SIGNUP_COMPLETION_WINDOW)))
+                .isPresent();
+    }
+
+    /**
+     * 회원가입이 완료되면 재사용(replay)을 막기 위해 인증 기록을 지운다.
+     */
+    @Transactional
+    public void consumeSignupVerification(String email) {
+        emailVerificationRepository.deleteCode(email, EmailPurpose.SIGNUP);
     }
 
     private void validateNotAlreadyRegistered(String email) {

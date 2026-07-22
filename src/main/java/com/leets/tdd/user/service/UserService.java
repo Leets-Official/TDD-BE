@@ -1,9 +1,13 @@
 package com.leets.tdd.user.service;
 
 import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
+import com.leets.tdd.user.dto.ProfileRegistrationRequest;
+import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -11,21 +15,31 @@ import com.leets.tdd.user.repository.UserRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
- * 이슈: 마이페이지 조회 API.
- * 시나리오: Authorization 헤더의 access token 검증 -> 정지기간 지났으면 lazy하게 ACTIVE로 복귀
- * -> User/Dormitory 조회해서 응답 조립.
+ * 마이페이지 조회 + 계정등록(회원가입 완료) API.
+ * 계정등록은 signup_token 없이 email + email_verification_codes의 verified_at(15분 이내)로
+ * 신원을 확인한다. 기존에 탈퇴(DELETED)했던 계정이면 재사용(reactivate)하고,
+ * ACTIVE/SUSPENDED면 이미 가입된 이메일로, BANNED거나 정지기간이 안 지난 DELETED면 가입을 막는다.
  */
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final int MAX_NICKNAME_GENERATION_ATTEMPTS = 5;
+
     private final UserRepository userRepository;
     private final DormitoryRepository dormitoryRepository;
     private final JwtProvider jwtProvider;
+    private final RefreshTokenHasher refreshTokenHasher;
+    private final EmailVerificationService emailVerificationService;
+    private final PasswordEncoder passwordEncoder;
+    private final NicknameGenerator nicknameGenerator;
 
     @Transactional
     public MyPageResponse getMyPage(String authorizationHeader) {
@@ -41,6 +55,95 @@ public class UserService {
         Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
 
         return toMyPageResponse(user, dormitory);
+    }
+
+    @Transactional
+    public ProfileRegistrationResponse completeSignup(ProfileRegistrationRequest request) {
+        String email = request.email();
+
+        if (!emailVerificationService.isRecentlyVerifiedForSignup(email)) {
+            throw new UserException(UserErrorCode.INVALID_VERIFICATION);
+        }
+
+        String nickname = resolveNickname(request.nickname());
+        String encodedPassword = passwordEncoder.encode(request.password());
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        IssuedTokens tokens;
+
+        if (user == null) {
+            user = new User(email, nickname, encodedPassword, "", LocalDateTime.now());
+            userRepository.save(user);
+            tokens = issueTokens(user.getId());
+            user.updateRefreshToken(refreshTokenHasher.hash(tokens.refreshToken()), tokens.refreshTokenExpiresAt());
+        } else {
+            validateExistingUserForRegistration(user);
+            tokens = issueTokens(user.getId());
+            user.reactivate(nickname, encodedPassword,
+                    refreshTokenHasher.hash(tokens.refreshToken()), tokens.refreshTokenExpiresAt());
+        }
+        userRepository.save(user);
+
+        applyDormitory(user.getId(), request.dormitory());
+        emailVerificationService.consumeSignupVerification(email);
+
+        return new ProfileRegistrationResponse(
+                user.getNickname(), request.dormitory(), tokens.accessToken(), tokens.refreshToken(), "Bearer");
+    }
+
+    private record IssuedTokens(String accessToken, String refreshToken, LocalDateTime refreshTokenExpiresAt) {
+    }
+
+    private IssuedTokens issueTokens(Long userId) {
+        String accessToken = jwtProvider.createAccessToken(userId);
+        String refreshToken = jwtProvider.createRefreshToken(userId);
+        LocalDateTime refreshTokenExpiresAt = LocalDateTime.now().plus(jwtProvider.getRefreshTokenValidity());
+        return new IssuedTokens(accessToken, refreshToken, refreshTokenExpiresAt);
+    }
+
+    /**
+     * 기존 회원(email로 찾은) 상태별 가입 가능 여부.
+     * ACTIVE/SUSPENDED: 이미 쓰고 있는 계정 -> 이미 가입된 이메일
+     * BANNED: 영구 제한 -> 가입 불가
+     * DELETED: 탈퇴했던 계정. 정지기간이 아직 안 지났으면(탈퇴로 정지 우회 방지) 가입 불가,
+     *          지났으면 재사용(reactivate) 대상으로 통과시킨다.
+     */
+    private void validateExistingUserForRegistration(User user) {
+        switch (user.getStatus()) {
+            case ACTIVE, SUSPENDED -> throw new UserException(UserErrorCode.ALREADY_REGISTERED_EMAIL);
+            case BANNED -> throw new UserException(UserErrorCode.REGISTRATION_BLOCKED);
+            case DELETED -> {
+                if (user.isWithinSuspensionPeriod()) {
+                    throw new UserException(UserErrorCode.REGISTRATION_BLOCKED);
+                }
+            }
+        }
+    }
+
+    private String resolveNickname(String requestedNickname) {
+        if (requestedNickname != null && !requestedNickname.isBlank()) {
+            if (userRepository.existsByNickname(requestedNickname)) {
+                throw new UserException(UserErrorCode.NICKNAME_DUPLICATE);
+            }
+            return requestedNickname;
+        }
+        for (int attempt = 0; attempt < MAX_NICKNAME_GENERATION_ATTEMPTS; attempt++) {
+            String candidate = nicknameGenerator.generate();
+            if (!userRepository.existsByNickname(candidate)) {
+                return candidate;
+            }
+        }
+        throw new UserException(UserErrorCode.NICKNAME_GENERATION_FAILED);
+    }
+
+    private void applyDormitory(Long userId, String dormitory) {
+        if (dormitory == null || dormitory.isBlank()) {
+            return;
+        }
+        dormitoryRepository.findByUserId(userId).ifPresentOrElse(
+                existing -> existing.resubmit(dormitory, null),
+                () -> dormitoryRepository.save(new Dormitory(userId, dormitory, null))
+        );
     }
 
     private Long extractUserId(String authorizationHeader) {
