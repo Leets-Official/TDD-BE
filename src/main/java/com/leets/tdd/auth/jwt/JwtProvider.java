@@ -1,6 +1,7 @@
 package com.leets.tdd.auth.jwt;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,15 +64,33 @@ public class JwtProvider {
     }
 
     /**
-     * 토큰을 파싱해서 subject(사용자 id)를 반환한다.
+     * access token을 파싱해서 subject(사용자 id)를 반환한다.
      * 서명이 잘못됐거나 형식이 깨졌으면 JwtException 계열이, 만료됐으면 ExpiredJwtException이 던져진다.
+     * type claim이 "access"가 아니면(=refresh token을 access token 대신 넣은 경우) JwtException을 던진다.
+     * (access/refresh token은 subject/서명 구조가 같아서 type 체크 없이는 refresh token으로도
+     * 보호된 API를 그대로 통과할 수 있었다.)
      */
     public Long parseUserId(String token) {
+        return parseUserId(token, TYPE_ACCESS);
+    }
+
+    /**
+     * refresh token을 파싱해서 subject(사용자 id)를 반환한다. (토큰 재발급 등에서 사용)
+     */
+    public Long parseRefreshUserId(String token) {
+        return parseUserId(token, TYPE_REFRESH);
+    }
+
+    private Long parseUserId(String token, String expectedType) {
         Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        String actualType = claims.get(CLAIM_TYPE, String.class);
+        if (!expectedType.equals(actualType)) {
+            throw new JwtException("토큰 타입이 올바르지 않습니다. expected=" + expectedType + ", actual=" + actualType);
+        }
         return Long.valueOf(claims.getSubject());
     }
 

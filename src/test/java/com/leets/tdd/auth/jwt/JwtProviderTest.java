@@ -1,6 +1,7 @@
 package com.leets.tdd.auth.jwt;
 
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.SignatureException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,13 +26,31 @@ class JwtProviderTest {
     }
 
     @Test
-    @DisplayName("refresh token을 발급하고 파싱하면 같은 userId가 나온다")
+    @DisplayName("refresh token을 발급하고 parseRefreshUserId로 파싱하면 같은 userId가 나온다")
     void createAndParseRefreshToken() {
         String token = jwtProvider.createRefreshToken(7L);
 
-        Long userId = jwtProvider.parseUserId(token);
+        Long userId = jwtProvider.parseRefreshUserId(token);
 
         assertThat(userId).isEqualTo(7L);
+    }
+
+    @Test
+    @DisplayName("refresh token을 parseUserId(access 전용)로 파싱하면 예외가 발생한다")
+    void parseUserId_rejectsRefreshToken() {
+        String refreshToken = jwtProvider.createRefreshToken(7L);
+
+        assertThatThrownBy(() -> jwtProvider.parseUserId(refreshToken))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    @DisplayName("access token을 parseRefreshUserId(refresh 전용)로 파싱하면 예외가 발생한다")
+    void parseRefreshUserId_rejectsAccessToken() {
+        String accessToken = jwtProvider.createAccessToken(42L);
+
+        assertThatThrownBy(() -> jwtProvider.parseRefreshUserId(accessToken))
+                .isInstanceOf(JwtException.class);
     }
 
     @Test
