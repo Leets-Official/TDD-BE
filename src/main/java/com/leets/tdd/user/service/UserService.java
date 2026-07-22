@@ -61,7 +61,10 @@ public class UserService {
     public ProfileRegistrationResponse completeSignup(ProfileRegistrationRequest request) {
         String email = request.email();
 
-        if (!emailVerificationService.isRecentlyVerifiedForSignup(email)) {
+        // 확인과 소비(삭제)를 하나의 원자적 연산으로 묶어서, 동시에 같은 이메일로 여러 요청이
+        // 와도 단 하나만 통과하게 한다(TOCTOU 방지). 이후 로직이 실패하면 @Transactional에 의해
+        // 이 소비도 함께 롤백되므로, 같은 인증 기록으로 재시도할 수 있다.
+        if (!emailVerificationService.consumeSignupVerification(email)) {
             throw new UserException(UserErrorCode.INVALID_VERIFICATION);
         }
 
@@ -85,7 +88,6 @@ public class UserService {
         userRepository.save(user);
 
         applyDormitory(user.getId(), request.dormitory());
-        emailVerificationService.consumeSignupVerification(email);
 
         return new ProfileRegistrationResponse(
                 user.getNickname(), request.dormitory(), tokens.accessToken(), tokens.refreshToken(), "Bearer");

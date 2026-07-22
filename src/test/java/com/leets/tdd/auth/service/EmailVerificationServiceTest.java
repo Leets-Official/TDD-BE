@@ -16,12 +16,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -192,42 +194,22 @@ class EmailVerificationServiceTest {
     }
 
     @Test
-    @DisplayName("SIGNUP 인증 성공(verifiedAt) 후 15분 이내면 true를 반환한다")
-    void isRecentlyVerifiedForSignup_withinWindow() {
-        EmailVerificationCode verified = new EmailVerificationCode(
-                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
-        verified.markVerified();
-        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
-                .thenReturn(Optional.of(verified));
+    @DisplayName("SIGNUP 인증이 15분 이내에 완료됐으면 소비(삭제)에 성공하고 true를 반환한다")
+    void consumeSignupVerification_withinWindow() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.SIGNUP), any(Duration.class)))
+                .thenReturn(true);
 
-        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isTrue();
+        assertThat(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).isTrue();
     }
 
     @Test
-    @DisplayName("인증된 적이 없으면 false를 반환한다")
-    void isRecentlyVerifiedForSignup_notVerified() {
-        EmailVerificationCode notVerified = new EmailVerificationCode(
-                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
-        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
-                .thenReturn(Optional.of(notVerified));
+    @DisplayName("인증된 적이 없거나 창이 지났거나 이미 소비됐으면 false를 반환한다")
+    void consumeSignupVerification_notVerifiedOrAlreadyConsumed() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.SIGNUP), any(Duration.class)))
+                .thenReturn(false);
 
-        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isFalse();
-    }
-
-    @Test
-    @DisplayName("발송 기록 자체가 없으면 false를 반환한다")
-    void isRecentlyVerifiedForSignup_noRecord() {
-        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
-                .thenReturn(Optional.empty());
-
-        assertThat(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).isFalse();
-    }
-
-    @Test
-    @DisplayName("회원가입 완료 시 인증 기록을 삭제(consume)한다")
-    void consumeSignupVerification() {
-        emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr");
-
-        verify(emailVerificationRepository).deleteCode("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        assertThat(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).isFalse();
     }
 }

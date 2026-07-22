@@ -210,7 +210,7 @@ class UserServiceTest {
     @Test
     @DisplayName("15분 이내 이메일 인증 기록이 없으면 예외가 발생한다")
     void completeSignup_notVerified() {
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(false);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(false);
 
         assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1동")))
                 .isInstanceOf(UserException.class)
@@ -220,7 +220,7 @@ class UserServiceTest {
     @Test
     @DisplayName("입력한 닉네임이 중복이면 예외가 발생한다")
     void completeSignup_nicknameDuplicate() {
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1동")))
@@ -231,7 +231,7 @@ class UserServiceTest {
     @Test
     @DisplayName("신규 가입이면 User를 생성하고 토큰을 발급한다")
     void completeSignup_newUserSuccess() {
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.empty());
         when(passwordEncoder.encode(anyString())).thenReturn("encoded");
@@ -257,7 +257,7 @@ class UserServiceTest {
     @Test
     @DisplayName("닉네임을 생략하면 자동 배정한다")
     void completeSignup_nicknameAutoAssign() {
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(nicknameGenerator.generate()).thenReturn("행복한가나디1234");
         when(userRepository.existsByNickname("행복한가나디1234")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.empty());
@@ -277,7 +277,7 @@ class UserServiceTest {
     @DisplayName("ACTIVE/SUSPENDED 계정이 있으면 이미 가입된 이메일로 처리한다")
     void completeSignup_alreadyRegisteredActiveUser() {
         User existing = newUser();
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(existing));
 
@@ -291,7 +291,7 @@ class UserServiceTest {
     void completeSignup_bannedUser() {
         User banned = newUser();
         banned.ban();
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(banned));
 
@@ -306,7 +306,7 @@ class UserServiceTest {
         User deleted = newUser();
         deleted.suspend(LocalDateTime.now().plusDays(3));
         deleted.softDelete();
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(deleted));
 
@@ -320,7 +320,7 @@ class UserServiceTest {
     void completeSignup_reactivateDeletedUser() {
         User deleted = newUser();
         deleted.softDelete();
-        when(emailVerificationService.isRecentlyVerifiedForSignup("abcd@gachon.ac.kr")).thenReturn(true);
+        when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(false);
         when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(deleted));
         when(passwordEncoder.encode(anyString())).thenReturn("encoded");
