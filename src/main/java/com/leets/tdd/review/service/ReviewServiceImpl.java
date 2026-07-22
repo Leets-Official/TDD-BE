@@ -22,6 +22,7 @@ import com.leets.tdd.review.repository.ReviewTagMappingRepository;
 import com.leets.tdd.review.repository.ReviewTagRepository;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -104,6 +105,9 @@ public class ReviewServiceImpl implements ReviewService {
       reviewTagMappingRepository.saveAll(tagIds.stream()
           .map(tagId -> ReviewTagMapping.create(review.getId(), tagId))
           .toList());
+      User reviewee = userRepository.findById(request.revieweeId())
+          .orElseThrow(() -> new ReviewException(ReviewErrorCode.REVIEWEE_NOT_PARTICIPANT));
+      reviewee.updateMannerTemperature(mannerTemperatureDelta(request.rating()));
       return CreateReviewResponse.from(review, tagIds);
     } catch (DataIntegrityViolationException exception) {
       // 서비스 단의 사전 검사 사이에 동시에 같은 후기가 저장될 수 있어 DB 유니크 제약도 함께 방어합니다.
@@ -192,6 +196,17 @@ public class ReviewServiceImpl implements ReviewService {
     if (reviewTagRepository.findAllById(tagIds).size() != tagIds.size()) {
       throw new ReviewException(ReviewErrorCode.REVIEW_TAG_NOT_FOUND);
     }
+  }
+
+  private BigDecimal mannerTemperatureDelta(Integer rating) {
+    return switch (rating) {
+      case 5 -> new BigDecimal("0.5");
+      case 4 -> new BigDecimal("0.2");
+      case 3 -> BigDecimal.ZERO;
+      case 2 -> new BigDecimal("-0.2");
+      case 1 -> new BigDecimal("-0.5");
+      default -> throw new ReviewException(ReviewErrorCode.REVIEW_TAG_NOT_FOUND);
+    };
   }
 
   private Map<Long, User> usersById(List<Long> userIds) {

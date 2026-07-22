@@ -94,6 +94,8 @@ class ReviewServiceImplTest {
     given(reviewRepository.existsByPartyIdAndReviewerIdAndRevieweeId(10L, 1L, 2L)).willReturn(false);
     given(reviewTagRepository.findAllById(List.of(1L))).willReturn(List.of(tag));
     given(reviewRepository.saveAndFlush(any(Review.class))).willAnswer(invocation -> invocation.getArgument(0));
+    User reviewee = new User("reviewee@school.ac.kr", "password", "평가 대상");
+    given(userRepository.findById(2L)).willReturn(Optional.of(reviewee));
 
     CreateReviewResponse response = reviewService.createReview(
         1L,
@@ -103,6 +105,7 @@ class ReviewServiceImplTest {
 
     assertThat(response.revieweeId()).isEqualTo(2L);
     assertThat(response.tagIds()).containsExactly(1L);
+    assertThat(reviewee.getMannerTemperature()).isEqualByComparingTo("37.0");
     verify(reviewTagMappingRepository).saveAll(any());
   }
 
