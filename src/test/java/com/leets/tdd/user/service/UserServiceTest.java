@@ -201,6 +201,7 @@ class UserServiceTest {
         MyPageResponse response = userService.getMyPage("Bearer valid");
 
         assertThat(response.status()).isEqualTo("ACTIVE");
+        assertThat(response.suspendedUntil()).isNull();
     }
 
     private ProfileRegistrationRequest newRequest(String nickname, String dormitory) {

@@ -131,8 +131,12 @@ public class User {
                 && LocalDateTime.now().isAfter(suspendedUntil);
     }
 
+    // 정지 기간이 자연히 지나서 ACTIVE로 되돌리는 경우라, 정지 우회 방지용으로 남겨둘 이유가
+    // 없다(탈퇴 시 우회 방지는 softDelete() 경로에서 별도로 값을 세팅해서 처리한다).
+    // 여기서 지워두지 않으면 이미 지난 시각이 MyPageResponse.suspendedUntil로 그대로 노출된다.
     public void liftSuspension() {
         this.status = UserStatus.ACTIVE;
+        this.suspendedUntil = null;
     }
 
 
