@@ -1,7 +1,13 @@
-# 로컬 개발 전용 설정. 'local' 프로필을 활성화했을 때만 적용된다
+# 로컬 개발/테스트 전용 설정. 'local' 프로필을 활성화했을 때만 적용된다
 # (IntelliJ Run Configuration -> Active profiles: local,
 #  또는 './gradlew bootRun --args=--spring.profiles.active=local').
 # 여기 있는 jwt.secret은 로컬 기동 편의를 위한 임시 값이며, 운영 배포에서는 이 프로필을
 # 절대 활성화하지 않고 JWT_SECRET 환경변수를 직접 넣어야 한다.
+# access/refresh-token-validity-seconds도 여기 같이 둔 이유: src/test/resources/application.yaml
+# (테스트용 H2 설정)이 테스트 실행 시 src/main/resources/application.yaml을 통째로 대체해버려서,
+# main 쪽 jwt 설정이 테스트에서는 아예 안 보인다. @ActiveProfiles("local")을 켠 컨텍스트 로딩
+# 테스트가 JwtProvider 빈을 만들 때 필요한 값이라 profile 파일에 전부 넣어 자체 완결시킨다.
 jwt:
   secret: ${JWT_SECRET:this-is-a-temporary-local-development-jwt-secret-please-override-with-JWT_SECRET-env-var}
+  access-token-validity-seconds: 1800
+  refresh-token-validity-seconds: 2592000
