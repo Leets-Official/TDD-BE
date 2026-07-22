@@ -3,3 +3,19 @@ spring:
     name: TDD-BE
   jackson:
     time-zone: Asia/Seoul
+  jpa:
+    # ddl-auto는 여기 두지 않는다. 스키마는 Flyway 마이그레이션(src/main/resources/db/migration)이
+    # 전담하고, Hibernate는 스키마를 만들거나 바꾸지 않는다(공유 DB에서 기동 시 스키마가
+    # 의도치 않게 바뀌는 걸 막기 위함). 스키마를 바꿀 땐 새 V{n}__설명.sql 파일을 추가할 것.
+    show-sql: true
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_APP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
