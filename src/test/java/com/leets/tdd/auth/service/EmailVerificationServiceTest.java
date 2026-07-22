@@ -136,6 +136,27 @@ class EmailVerificationServiceTest {
         assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
                 .isInstanceOf(AuthException.class)
                 .hasMessage(AuthErrorCode.CODE_MISMATCH.getMessage());
+
+        verify(emailVerificationRepository).increaseAttemptCount(stored);
+    }
+
+    @Test
+    @DisplayName("확인 실패가 3회 누적되면 코드가 만료 전이라도 이후 시도는 거부된다")
+    void verifyCode_attemptLimitExceeded() {
+        VerifyEmailCodeRequest request = new VerifyEmailCodeRequest("abcd@gachon.ac.kr", "123456", null);
+        EmailVerificationCode stored = new EmailVerificationCode(
+                "abcd@gachon.ac.kr", EmailPurpose.SIGNUP, "hashed-123456", LocalDateTime.now().plusMinutes(5));
+        stored.increaseAttemptCount();
+        stored.increaseAttemptCount();
+        stored.increaseAttemptCount();
+        when(emailVerificationRepository.findLatest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP))
+                .thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.VERIFICATION_ATTEMPT_LIMIT_EXCEEDED.getMessage());
+
+        verifyNoInteractions(passwordEncoder);
     }
 
     @Test

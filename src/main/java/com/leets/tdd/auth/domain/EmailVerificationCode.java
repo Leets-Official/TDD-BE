@@ -57,12 +57,23 @@ public class EmailVerificationCode {
     @Column
     private LocalDateTime verifiedAt;
 
+    /**
+     * 이 코드에 대한 검증 실패 횟수. ERD의 attempt_count(default 0)에 대응.
+     * 코드 자체가 5분 TTL이라 별도 시간창 없이, 이 코드가 살아있는 동안
+     * 실패 횟수가 MAX_ATTEMPT_COUNT(3)에 도달하면 이후 시도는 막는다.
+     */
+    @Column(nullable = false)
+    private int attemptCount;
+
+    private static final int MAX_ATTEMPT_COUNT = 3;
+
     public EmailVerificationCode(String email, EmailPurpose purpose, String code, LocalDateTime expiresAt) {
         this.email = email;
         this.purpose = purpose;
         this.code = code;
         this.expiresAt = expiresAt;
         this.createdAt = LocalDateTime.now();
+        this.attemptCount = 0;
     }
 
     public boolean isExpired() {
@@ -71,5 +82,13 @@ public class EmailVerificationCode {
 
     public void markVerified() {
         this.verifiedAt = LocalDateTime.now();
+    }
+
+    public void increaseAttemptCount() {
+        this.attemptCount++;
+    }
+
+    public boolean isAttemptLimitExceeded() {
+        return this.attemptCount >= MAX_ATTEMPT_COUNT;
     }
 }

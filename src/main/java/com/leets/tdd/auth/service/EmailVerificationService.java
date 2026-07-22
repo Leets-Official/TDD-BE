@@ -70,6 +70,8 @@ public class EmailVerificationService {
      * purpose를 생략하면(회원가입 흐름 명세) SIGNUP으로 간주하고,
      * purpose가 있으면(비밀번호 재설정 흐름 명세) 해당 purpose로 저장된 코드와 비교한다.
      * 이미 검증에 성공한 코드(verifiedAt != null)는 만료 전이라도 재사용할 수 없다.
+     * 코드 불일치가 누적돼 attempt_count가 3회에 도달하면, 코드가 만료되기 전이라도
+     * 이후 시도는 모두 거부한다(429).
      */
     public void verifyCode(VerifyEmailCodeRequest request) {
         String email = request.email();
@@ -86,7 +88,12 @@ public class EmailVerificationService {
             throw new AuthException(AuthErrorCode.CODE_EXPIRED);
         }
 
+        if (verification.isAttemptLimitExceeded()) {
+            throw new AuthException(AuthErrorCode.VERIFICATION_ATTEMPT_LIMIT_EXCEEDED);
+        }
+
         if (!passwordEncoder.matches(request.code(), verification.getCode())) {
+            emailVerificationRepository.increaseAttemptCount(verification);
             throw new AuthException(AuthErrorCode.CODE_MISMATCH);
         }
 

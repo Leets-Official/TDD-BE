@@ -51,6 +51,15 @@ public class EmailVerificationRepository {
         jpaRepository.save(verification);
     }
 
+    /**
+     * 인증코드 확인(verify) 실패 시 attempt_count 증가. ERD의 attempt_count 컬럼용.
+     */
+    @Transactional
+    public void increaseAttemptCount(EmailVerificationCode verification) {
+        verification.increaseAttemptCount();
+        jpaRepository.save(verification);
+    }
+
     @Transactional
     public void deleteCode(String email, EmailPurpose purpose) {
         jpaRepository.deleteByEmailAndPurpose(email, purpose);
