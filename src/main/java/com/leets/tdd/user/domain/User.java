@@ -51,4 +51,10 @@ public class User {
     this.createdAt = LocalDateTime.now();
     this.updatedAt = LocalDateTime.now();
   }
+
+  public void updateMannerTemperature(BigDecimal delta) {
+    this.mannerTemperature = this.mannerTemperature.add(delta);
+    this.updatedAt = LocalDateTime.now();
+  }
+
 }
