@@ -29,7 +29,7 @@ public class ChatMessage {
     private String content;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "message_type", nullable = false, length = 20)
+    @Column(name = "message_type", nullable = false, length = 30)
     private MessageType messageType;
 
     // 이미지 메시지일 때 사진 URL

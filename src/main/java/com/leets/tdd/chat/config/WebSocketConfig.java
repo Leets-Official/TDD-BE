@@ -11,7 +11,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Value("${websocket.allowed-origins}")
+    @Value("${websocket.allowed-origins:http://localhost:[*]}")
     private String[] allowedOrigins;
 
     // 클라이언트가 처음 WebSocket 연결하는 주소

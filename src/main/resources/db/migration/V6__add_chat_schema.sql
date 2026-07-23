@@ -17,7 +17,7 @@ CREATE TABLE chat_messages
     chat_room_id BIGINT       NOT NULL,
     sender_id    BIGINT       NULL,
     content      TEXT         NULL,
-    message_type VARCHAR(20)  NOT NULL,
+    message_type VARCHAR(30)  NOT NULL,
     image_url    VARCHAR(500) NULL,
     created_at   DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     CONSTRAINT fk_chat_messages_chat_room_id FOREIGN KEY (chat_room_id) REFERENCES chat_rooms (id),
