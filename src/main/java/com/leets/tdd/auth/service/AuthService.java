@@ -9,6 +9,8 @@ import com.leets.tdd.auth.jwt.JwtProvider;
 import com.leets.tdd.auth.jwt.RefreshTokenHasher;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.domain.UserStatus;
+import com.leets.tdd.user.exception.UserErrorCode;
+import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.UserRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -125,5 +127,20 @@ public class AuthService {
         userRepository.save(user);
 
         return new LoginResponse(newAccessToken, newRefreshToken, "Bearer");
+    }
+
+    /**
+     * 로그아웃. 저장된 refresh token 해시를 지워서 이후 재발급(reissue)에 못 쓰게 만든다.
+     * access token 자체는 서버에 상태를 두지 않는 JWT라 만료 전까지는 여전히 유효하지만,
+     * refresh token이 지워졌으니 만료 후에는 재로그인 없이 재발급을 받을 수 없다.
+     * userId는 JwtAuthenticationFilter가 access token에서 이미 검증해 SecurityContext에
+     * 넣어둔 값이라, 여기서 토큰 유효성 자체는 다시 확인하지 않는다.
+     */
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+        user.clearRefreshToken();
+        userRepository.save(user);
     }
 }

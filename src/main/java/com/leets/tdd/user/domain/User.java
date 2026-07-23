@@ -198,6 +198,14 @@ public class User {
         this.refreshTokenExpiresAt = refreshTokenExpiresAt;
     }
 
+    // 로그아웃 시 refresh token을 무효화한다. refreshTokenHash는 not-null 컬럼이라 null 대신
+    // RefreshTokenCleanupScheduler와 같은 관례로 빈 문자열을 "토큰 없음" 상태로 쓴다.
+    // refreshTokenExpiresAt은 그대로 둬도 되는데, 어차피 재발급 시 해시 일치 여부부터 확인해서
+    // 빈 문자열과는 절대 일치할 수 없기 때문이다.
+    public void clearRefreshToken() {
+        this.refreshTokenHash = "";
+    }
+
     // develop의 정산/후기 기능(ReviewServiceImpl)에서 매너온도 갱신에 사용.
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {

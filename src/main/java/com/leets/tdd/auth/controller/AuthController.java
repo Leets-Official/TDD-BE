@@ -7,12 +7,15 @@ import com.leets.tdd.auth.dto.RefreshTokenRequest;
 import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.service.AuthService;
 import com.leets.tdd.auth.service.EmailVerificationService;
+import com.leets.tdd.global.auth.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -78,5 +81,18 @@ public class AuthController {
     ) {
         LoginResponse response = authService.reissueToken(request);
         return ResponseEntity.ok(ApiResponse.success("토큰이 재발급되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "로그아웃",
+            description = "저장된 refresh token을 무효화한다. Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        authService.logout(userPrincipal.userId());
+        return ResponseEntity.ok(ApiResponse.success("로그아웃에 성공하였습니다."));
     }
 }
