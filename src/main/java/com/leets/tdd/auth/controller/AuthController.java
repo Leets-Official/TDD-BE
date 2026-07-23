@@ -1,7 +1,11 @@
 package com.leets.tdd.auth.controller;
 
 import com.leets.tdd.auth.dto.EmailVerificationRequest;
+import com.leets.tdd.auth.dto.LoginRequest;
+import com.leets.tdd.auth.dto.LoginResponse;
+import com.leets.tdd.auth.dto.RefreshTokenRequest;
 import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
+import com.leets.tdd.auth.service.AuthService;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final EmailVerificationService emailVerificationService;
+    private final AuthService authService;
 
     @Operation(
             summary = "학교 이메일 인증코드 발송",
@@ -47,5 +52,31 @@ public class AuthController {
     ) {
         emailVerificationService.verifyCode(request);
         return ResponseEntity.ok(ApiResponse.success("이메일 인증에 성공하였습니다."));
+    }
+
+    @Operation(
+            summary = "로그인",
+            description = "이메일/비밀번호로 로그인해서 access/refresh 토큰을 발급받는다. "
+                    + "5분 내 3회 실패하면 15분간 로그인이 제한된다."
+    )
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.success("로그인에 성공하였습니다.", response));
+    }
+
+    @Operation(
+            summary = "토큰 재발급",
+            description = "로그인 때 발급받은 refresh token으로 access/refresh 토큰을 재발급한다. "
+                    + "재발급마다 refresh token도 새로 교체(rotate)되어 이전 refresh token은 더 이상 쓸 수 없다."
+    )
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<LoginResponse>> reissueToken(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        LoginResponse response = authService.reissueToken(request);
+        return ResponseEntity.ok(ApiResponse.success("토큰이 재발급되었습니다.", response));
     }
 }

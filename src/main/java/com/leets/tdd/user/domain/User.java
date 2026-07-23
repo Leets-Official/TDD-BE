@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 /**
@@ -85,6 +86,16 @@ public class User {
 
     @Column(nullable = false)
     private boolean pushEnabled;
+
+    @Column(nullable = false)
+    private int failedLoginAttempts;
+
+    @Column
+    private LocalDateTime lastFailedLoginAt;
+
+    private static final int MAX_LOGIN_ATTEMPTS = 3;
+    private static final Duration LOGIN_ATTEMPT_WINDOW = Duration.ofMinutes(5);
+    private static final Duration LOGIN_BLOCK_DURATION = Duration.ofMinutes(15);
 
     public User(String email, String nickname, String password,
                  String refreshTokenHash, LocalDateTime refreshTokenExpiresAt) {
@@ -189,5 +200,34 @@ public class User {
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {
         this.mannerTemperature = this.mannerTemperature.add(delta);
+    }
+
+    // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).
+    // lastFailedLoginAt 하나로 "실패 3회 미만일 때의 5분 리셋 판단"과
+    // "실패 3회 이상일 때의 15분 차단 판단"을 둘 다 계산한다(별도 만료시각 컬럼 없이).
+    public boolean isLoginBlocked() {
+        return failedLoginAttempts >= MAX_LOGIN_ATTEMPTS
+                && lastFailedLoginAt != null
+                && LocalDateTime.now().isBefore(lastFailedLoginAt.plus(LOGIN_BLOCK_DURATION));
+    }
+
+    // 비밀번호 불일치로 로그인에 실패했을 때 호출한다.
+    // 마지막 실패로부터 5분(LOGIN_ATTEMPT_WINDOW)이 지났으면 새 시도 구간으로 보고 1부터 다시 세고,
+    // 그 안이면 누적해서 센다. 3회(MAX_LOGIN_ATTEMPTS) 도달 이후에도 계속 실패하면(차단 중 재시도는
+    // 이 메서드까지 오지 않지만, 안전하게) 이 시각 기준으로 15분 차단이 계속 갱신된다.
+    public void recordFailedLogin() {
+        LocalDateTime now = LocalDateTime.now();
+        if (lastFailedLoginAt == null || now.isAfter(lastFailedLoginAt.plus(LOGIN_ATTEMPT_WINDOW))) {
+            failedLoginAttempts = 1;
+        } else {
+            failedLoginAttempts++;
+        }
+        lastFailedLoginAt = now;
+    }
+
+    // 로그인에 성공했을 때 실패 카운트/차단 상태를 초기화한다.
+    public void resetLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lastFailedLoginAt = null;
     }
 }
