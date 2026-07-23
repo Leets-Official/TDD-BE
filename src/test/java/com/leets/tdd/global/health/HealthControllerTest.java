@@ -39,6 +39,8 @@ class HealthControllerTest {
     @Test
     void 공개되지_않은_엔드포인트는_인증을_요구한다() throws Exception {
         mockMvc.perform(get("/api/v1/private"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("인증 토큰이 없습니다."));
     }
 }
