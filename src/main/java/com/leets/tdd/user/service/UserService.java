@@ -12,8 +12,6 @@ import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
 import com.leets.tdd.user.repository.UserRepository;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,9 +40,7 @@ public class UserService {
     private final NicknameGenerator nicknameGenerator;
 
     @Transactional
-    public MyPageResponse getMyPage(String authorizationHeader) {
-        Long userId = extractUserId(authorizationHeader);
-
+    public MyPageResponse getMyPage(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
 
@@ -146,20 +142,6 @@ public class UserService {
                 existing -> existing.resubmit(dormitory, null),
                 () -> dormitoryRepository.save(new Dormitory(userId, dormitory, null))
         );
-    }
-
-    private Long extractUserId(String authorizationHeader) {
-        String token = jwtProvider.resolveToken(authorizationHeader);
-        if (token == null) {
-            throw new UserException(UserErrorCode.INVALID_TOKEN);
-        }
-        try {
-            return jwtProvider.parseUserId(token);
-        } catch (ExpiredJwtException e) {
-            throw new UserException(UserErrorCode.TOKEN_EXPIRED);
-        } catch (JwtException | IllegalArgumentException e) {
-            throw new UserException(UserErrorCode.INVALID_TOKEN);
-        }
     }
 
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {

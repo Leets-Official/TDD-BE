@@ -13,8 +13,6 @@ import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
 import com.leets.tdd.user.repository.UserRepository;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.security.SignatureException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -70,45 +67,11 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("Authorization 헤더가 없거나 형식이 안 맞으면 예외가 발생한다")
-    void getMyPage_invalidToken() {
-        when(jwtProvider.resolveToken(null)).thenReturn(null);
-
-        assertThatThrownBy(() -> userService.getMyPage(null))
-                .isInstanceOf(UserException.class)
-                .hasMessage(UserErrorCode.INVALID_TOKEN.getMessage());
-    }
-
-    @Test
-    @DisplayName("토큰이 만료됐으면 예외가 발생한다")
-    void getMyPage_expiredToken() {
-        when(jwtProvider.resolveToken("Bearer expired")).thenReturn("expired");
-        when(jwtProvider.parseUserId("expired")).thenThrow(mock(ExpiredJwtException.class));
-
-        assertThatThrownBy(() -> userService.getMyPage("Bearer expired"))
-                .isInstanceOf(UserException.class)
-                .hasMessage(UserErrorCode.TOKEN_EXPIRED.getMessage());
-    }
-
-    @Test
-    @DisplayName("서명이 잘못된 토큰이면 예외가 발생한다")
-    void getMyPage_invalidSignature() {
-        when(jwtProvider.resolveToken("Bearer bad")).thenReturn("bad");
-        when(jwtProvider.parseUserId("bad")).thenThrow(mock(SignatureException.class));
-
-        assertThatThrownBy(() -> userService.getMyPage("Bearer bad"))
-                .isInstanceOf(UserException.class)
-                .hasMessage(UserErrorCode.INVALID_TOKEN.getMessage());
-    }
-
-    @Test
-    @DisplayName("토큰은 유효한데 유저가 없으면 예외가 발생한다")
+    @DisplayName("유저가 없으면 예외가 발생한다")
     void getMyPage_userNotFound() {
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.getMyPage("Bearer valid"))
+        assertThatThrownBy(() -> userService.getMyPage(1L))
                 .isInstanceOf(UserException.class)
                 .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
     }
@@ -117,12 +80,10 @@ class UserServiceTest {
     @DisplayName("기숙사 인증 정보가 없으면(미인증) 관련 필드가 전부 null로 내려간다")
     void getMyPage_noDormitory() {
         User user = newUser();
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        MyPageResponse response = userService.getMyPage("Bearer valid");
+        MyPageResponse response = userService.getMyPage(1L);
 
         assertThat(response.nickname()).isEqualTo("가나디");
         assertThat(response.status()).isEqualTo("ACTIVE");
@@ -139,12 +100,10 @@ class UserServiceTest {
         Dormitory dormitory = new Dormitory(1L, "1동", "s3-key");
         dormitory.approve(LocalDateTime.now().plusMonths(4));
 
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
 
-        MyPageResponse response = userService.getMyPage("Bearer valid");
+        MyPageResponse response = userService.getMyPage(1L);
 
         assertThat(response.dormitory()).isEqualTo("1동");
         assertThat(response.dormStatus()).isEqualTo(DormStatus.APPROVED.name());
@@ -158,12 +117,10 @@ class UserServiceTest {
         Dormitory dormitory = new Dormitory(1L, "1동", "s3-key");
         dormitory.reject("사진이 흐릿합니다");
 
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
 
-        MyPageResponse response = userService.getMyPage("Bearer valid");
+        MyPageResponse response = userService.getMyPage(1L);
 
         assertThat(response.dormStatus()).isEqualTo(DormStatus.REJECTED.name());
         assertThat(response.rejectReason()).isEqualTo("사진이 흐릿합니다");
@@ -175,12 +132,10 @@ class UserServiceTest {
         User user = newUser();
         Dormitory dormitory = new Dormitory(1L, "1동", null);
 
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
 
-        MyPageResponse response = userService.getMyPage("Bearer valid");
+        MyPageResponse response = userService.getMyPage(1L);
 
         assertThat(response.dormitory()).isEqualTo("1동");
         assertThat(response.dormStatus()).isEqualTo(DormStatus.NOT_SUBMITTED.name());
@@ -193,12 +148,10 @@ class UserServiceTest {
         User user = newUser();
         user.suspend(LocalDateTime.now().minusDays(1));
 
-        when(jwtProvider.resolveToken("Bearer valid")).thenReturn("valid");
-        when(jwtProvider.parseUserId("valid")).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
-        MyPageResponse response = userService.getMyPage("Bearer valid");
+        MyPageResponse response = userService.getMyPage(1L);
 
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(response.suspendedUntil()).isNull();
