@@ -94,6 +94,7 @@ public class Dormitory {
 
     public void expire() {
         this.dormStatus = DormStatus.EXPIRED;
+        this.rejectReason = "인증기간이 만료되었습니다. 다시 인증해주세요";
     }
 
     public void resubmit(String dormitory, String dormVerificationImageKey) {
