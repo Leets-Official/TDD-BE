@@ -1,5 +1,6 @@
 package com.leets.tdd.user.controller;
 
+import com.leets.tdd.global.auth.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
@@ -34,9 +35,9 @@ public class UserController {
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MyPageResponse>> getMyPage(
-            @AuthenticationPrincipal Long userId
+            @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
-        MyPageResponse response = userService.getMyPage(userId);
+        MyPageResponse response = userService.getMyPage(userPrincipal.userId());
         return ResponseEntity.ok(ApiResponse.success("마이페이지 조회에 성공하였습니다.", response));
     }
 

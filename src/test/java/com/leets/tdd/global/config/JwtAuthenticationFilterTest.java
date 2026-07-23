@@ -1,6 +1,7 @@
 package com.leets.tdd.global.config;
 
 import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.auth.UserPrincipal;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,7 +53,7 @@ class JwtAuthenticationFilterTest {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNotNull();
-        assertThat(authentication.getPrincipal()).isEqualTo(1L);
+        assertThat(authentication.getPrincipal()).isEqualTo(new UserPrincipal(1L));
         verify(filterChain).doFilter(request, response);
     }
 
