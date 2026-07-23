@@ -1,24 +1,29 @@
 package com.leets.tdd.party.controller;
 
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/delivery-parties")
+@RequestMapping("/api/v1/delivery-parties")
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
     private final DeliveryPartyService deliveryPartyService;
 
     @PostMapping
-    public void createDeliveryParty(
+    public ResponseEntity<CreateDeliveryPartyResponse> createDeliveryParty(
             @RequestBody CreateDeliveryPartyRequest request
     ) {
-        deliveryPartyService.createDeliveryParty(request);
+        CreateDeliveryPartyResponse response =
+                deliveryPartyService.createDeliveryParty(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 }

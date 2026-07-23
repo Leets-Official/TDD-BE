@@ -3,10 +3,11 @@ package com.leets.tdd.party.service;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.settlement.domain.SettlementStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.leets.tdd.settlement.domain.SettlementStatus;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +17,7 @@ public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
 
-    public void createDeliveryParty(CreateDeliveryPartyRequest request) {
+    public CreateDeliveryPartyResponse createDeliveryParty(CreateDeliveryPartyRequest request) {
 
         DeliveryParty deliveryParty = new DeliveryParty(
                 1L, // TODO: 로그인 사용자 ID로 변경
@@ -36,6 +37,18 @@ public class DeliveryPartyService {
                 LocalDateTime.now()
         );
 
-        deliveryPartyRepository.save(deliveryParty);
+        DeliveryParty savedDeliveryParty = deliveryPartyRepository.save(deliveryParty);
+
+        return new CreateDeliveryPartyResponse(
+                savedDeliveryParty.getId(),
+                savedDeliveryParty.getFoodCategoryId(),
+                savedDeliveryParty.getTitle(),
+                savedDeliveryParty.getDescription(),
+                savedDeliveryParty.getMinParticipants(),
+                savedDeliveryParty.getMaxParticipants(),
+                savedDeliveryParty.getOrderExpectedAt(),
+                savedDeliveryParty.getStatus().name(),
+                savedDeliveryParty.getCreatedAt()
+        );
     }
 }

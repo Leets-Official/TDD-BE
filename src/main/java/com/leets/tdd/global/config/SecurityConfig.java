@@ -16,7 +16,7 @@ public class SecurityConfig {
             "/api/v1/auth/email/**",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/delivery-parties"
+            "/api/v1/delivery-parties/**"
     };
 
     @Bean
@@ -25,11 +25,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
                 );
+
         return http.build();
     }
 

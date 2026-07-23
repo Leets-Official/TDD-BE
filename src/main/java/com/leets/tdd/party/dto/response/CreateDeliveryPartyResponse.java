@@ -1,7 +1,12 @@
 package com.leets.tdd.party.dto.response;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 import java.time.LocalDateTime;
 
+@Getter
+@AllArgsConstructor
 public class CreateDeliveryPartyResponse {
 
     private Long id;
