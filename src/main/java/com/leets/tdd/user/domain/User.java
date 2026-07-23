@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 /**
@@ -85,6 +86,18 @@ public class User {
 
     @Column(nullable = false)
     private boolean pushEnabled;
+
+    @Column(nullable = false)
+    private int failedLoginAttempts;
+
+    @Column
+    private LocalDateTime lastFailedLoginAt;
+
+    private static final int MAX_LOGIN_ATTEMPTS = 3;
+    // AuthService가 원자적 UPDATE(UserRepository.recordFailedLogin)의 windowStart 파라미터를
+    // 계산할 때도 같은 값을 써야 해서 public으로 둔다.
+    public static final Duration LOGIN_ATTEMPT_WINDOW = Duration.ofMinutes(5);
+    private static final Duration LOGIN_BLOCK_DURATION = Duration.ofMinutes(15);
 
     public User(String email, String nickname, String password,
                  String refreshTokenHash, LocalDateTime refreshTokenExpiresAt) {
@@ -189,5 +202,25 @@ public class User {
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {
         this.mannerTemperature = this.mannerTemperature.add(delta);
+    }
+
+    // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).
+    // lastFailedLoginAt 하나로 "실패 3회 미만일 때의 5분 리셋 판단"과
+    // "실패 3회 이상일 때의 15분 차단 판단"을 둘 다 계산한다(별도 만료시각 컬럼 없이).
+    public boolean isLoginBlocked() {
+        return failedLoginAttempts >= MAX_LOGIN_ATTEMPTS
+                && lastFailedLoginAt != null
+                && LocalDateTime.now().isBefore(lastFailedLoginAt.plus(LOGIN_BLOCK_DURATION));
+    }
+
+    // 비밀번호 불일치로 로그인에 실패했을 때의 카운트 증가는 여기(엔티티 메서드 + save)가 아니라
+    // UserRepository.recordFailedLogin()의 원자적 UPDATE로 처리한다. 같은 유저에게 동시에 여러
+    // 실패 요청이 오면 "읽고-메모리에서 증가시키고-저장"하는 방식은 두 요청이 같은 값을 읽어서
+    // 하나가 유실되는 race condition이 생기기 때문이다(3회 제한이 동시요청으로 우회될 수 있음).
+
+    // 로그인에 성공했을 때 실패 카운트/차단 상태를 초기화한다.
+    public void resetLoginAttempts() {
+        this.failedLoginAttempts = 0;
+        this.lastFailedLoginAt = null;
     }
 }

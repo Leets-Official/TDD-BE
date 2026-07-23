@@ -1,15 +1,12 @@
 -- ERD 반영: 회원가입 완료(/users/me), 마이페이지, 노쇼 페널티, 기숙사 인증 기능 지원.
 -- 주의: users에 NOT NULL 컬럼을 다수 추가하면서 기존 row가 있을 경우를 대비해 DEFAULT를 넣었다.
--- nickname은 처음엔 NULL 허용으로 추가해서 기존 row에 겹치지 않는 값으로 백필한 다음에야
--- NOT NULL + UNIQUE 제약을 건다(기존 row가 2개 이상이어도 안전하게 적용되도록).
+-- nickname/profile_image_url/manner_temperature/created_at/updated_at은 V3(정산/후기 기능,
+-- V3__add_settlement_and_review_schema.sql)에서 이미 users에 추가했으므로 여기서는 다시
+-- 추가하지 않는다(중복 컬럼 에러 방지). nickname은 V3에서 NOT NULL DEFAULT ''로만 들어가고
+-- UNIQUE 제약은 없으므로, 기존 row에 겹치지 않는 값으로 백필한 다음 여기서 UNIQUE만 추가한다.
 -- ALTER TABLE 하나에 ADD COLUMN을 콤마로 여러 개 묶는 MySQL 문법은 테스트용 H2(MODE=MySQL)
 -- 에서 파싱이 안 돼서, 컬럼/제약 하나당 ALTER TABLE 문을 하나씩 따로 쓴다.
 
-ALTER TABLE users ADD COLUMN nickname VARCHAR(30) NULL;
-ALTER TABLE users ADD COLUMN profile_image_url VARCHAR(500) NULL;
-ALTER TABLE users ADD COLUMN manner_temperature DECIMAL(4, 1) NOT NULL DEFAULT 36.5;
-ALTER TABLE users ADD COLUMN created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
-ALTER TABLE users ADD COLUMN updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);
 ALTER TABLE users ADD COLUMN status VARCHAR(100) NOT NULL DEFAULT 'ACTIVE';
 ALTER TABLE users ADD COLUMN no_show_approved_count INT NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN suspended_until DATETIME(6) NULL;
