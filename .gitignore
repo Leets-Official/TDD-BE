@@ -41,5 +41,5 @@ out/
 !.env.example
 
 
-###test
+# 로컬 테스트용 임시 파일
 chat-test.html
