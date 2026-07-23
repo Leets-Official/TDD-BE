@@ -97,7 +97,7 @@ class UserServiceTest {
     @DisplayName("기숙사 인증 정보가 있으면 그대로 응답에 포함된다")
     void getMyPage_withDormitory() {
         User user = newUser();
-        Dormitory dormitory = new Dormitory(1L, "1동", "s3-key");
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "s3-key");
         dormitory.approve(LocalDateTime.now().plusMonths(4));
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -105,7 +105,7 @@ class UserServiceTest {
 
         MyPageResponse response = userService.getMyPage(1L);
 
-        assertThat(response.dormitory()).isEqualTo("1동");
+        assertThat(response.dormitory()).isEqualTo("1기숙사");
         assertThat(response.dormStatus()).isEqualTo(DormStatus.APPROVED.name());
         assertThat(response.dormVerifiedUntil()).isNotNull();
     }
@@ -114,7 +114,7 @@ class UserServiceTest {
     @DisplayName("기숙사 인증이 거절됐으면 거절 사유가 응답에 포함된다")
     void getMyPage_dormitoryRejected() {
         User user = newUser();
-        Dormitory dormitory = new Dormitory(1L, "1동", "s3-key");
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "s3-key");
         dormitory.reject("사진이 흐릿합니다");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -130,14 +130,14 @@ class UserServiceTest {
     @DisplayName("동만 입력하고 사진을 제출하지 않았으면 NOT_SUBMITTED로 내려간다")
     void getMyPage_dormitoryNotSubmitted() {
         User user = newUser();
-        Dormitory dormitory = new Dormitory(1L, "1동", null);
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", null);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
 
         MyPageResponse response = userService.getMyPage(1L);
 
-        assertThat(response.dormitory()).isEqualTo("1동");
+        assertThat(response.dormitory()).isEqualTo("1기숙사");
         assertThat(response.dormStatus()).isEqualTo(DormStatus.NOT_SUBMITTED.name());
         assertThat(response.dormVerifiedAt()).isNull();
     }
@@ -166,7 +166,7 @@ class UserServiceTest {
     void completeSignup_notVerified() {
         when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(false);
 
-        assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1동")))
+        assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1기숙사")))
                 .isInstanceOf(UserException.class)
                 .hasMessage(UserErrorCode.INVALID_VERIFICATION.getMessage());
     }
@@ -177,7 +177,7 @@ class UserServiceTest {
         when(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).thenReturn(true);
         when(userRepository.existsByNickname("가나디")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1동")))
+        assertThatThrownBy(() -> userService.completeSignup(newRequest("가나디", "1기숙사")))
                 .isInstanceOf(UserException.class)
                 .hasMessage(UserErrorCode.NICKNAME_DUPLICATE.getMessage());
     }
@@ -195,10 +195,10 @@ class UserServiceTest {
         when(refreshTokenHasher.hash(anyString())).thenReturn("hashed-refresh-token");
         when(dormitoryRepository.findByUserId(any())).thenReturn(Optional.empty());
 
-        ProfileRegistrationResponse response = userService.completeSignup(newRequest("가나디", "1동"));
+        ProfileRegistrationResponse response = userService.completeSignup(newRequest("가나디", "1기숙사"));
 
         assertThat(response.nickname()).isEqualTo("가나디");
-        assertThat(response.dormitory()).isEqualTo("1동");
+        assertThat(response.dormitory()).isEqualTo("1기숙사");
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.tokenType()).isEqualTo("Bearer");
