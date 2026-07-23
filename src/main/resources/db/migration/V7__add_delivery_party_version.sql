@@ -1,0 +1,2 @@
+ALTER TABLE delivery_parties
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

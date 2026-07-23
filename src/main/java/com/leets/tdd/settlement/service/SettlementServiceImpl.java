@@ -148,7 +148,9 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   public MySettlementListResponse getMySettlements(Long currentUserId) {
     List<PartyParticipant> myPayments = partyParticipantRepository
-        .findAllByUserIdAndPaymentStatusIsNotNull(currentUserId);
+        .findAllByUserIdAndPaymentStatusIsNotNull(currentUserId).stream()
+        .filter(PartyParticipant::isJoined)
+        .toList();
     Map<Long, DeliveryParty> partiesById = deliveryPartyRepository.findAllById(
             myPayments.stream().map(PartyParticipant::getPartyId).collect(Collectors.toSet())
         ).stream()
