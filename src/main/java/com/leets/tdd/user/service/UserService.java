@@ -8,6 +8,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -87,6 +88,34 @@ public class UserService {
 
         return new ProfileRegistrationResponse(
                 user.getNickname(), request.dormitory(), tokens.accessToken(), tokens.refreshToken(), "Bearer");
+    }
+
+    /**
+     * 계정탈퇴. access token으로 신원은 이미 확인됐으니, 비밀번호 재검증 후 soft delete(status
+     * = DELETED) 처리하고 refresh token도 무효화한다(로그아웃과 동일하게 clearRefreshToken()).
+     * suspendedUntil/noShowApprovedCount/mannerTemperature는 softDelete()가 건드리지 않으므로
+     * 그대로 유지된다(정지 우회 방지 + 재가입 시 이력 복원).
+     * <p>
+     * TODO: "진행 중인 배달팟(정산 미완료) 여부 확인" 단계는 party 도메인이 아직 구현 중이라 뺐다.
+     * party 쪽 API가 준비되면 여기서 막아야 한다(명세 실패 케이스: "진행 중인 배달팟이 있어
+     * 탈퇴할 수 없습니다.").
+     */
+    @Transactional
+    public void withdraw(Long userId, WithdrawalRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!user.canWithdraw()) {
+            throw new UserException(UserErrorCode.WITHDRAWAL_NOT_ALLOWED);
+        }
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new UserException(UserErrorCode.PASSWORD_MISMATCH);
+        }
+
+        user.softDelete();
+        user.clearRefreshToken();
+        userRepository.save(user);
     }
 
     private record IssuedTokens(String accessToken, String refreshToken, LocalDateTime refreshTokenExpiresAt) {

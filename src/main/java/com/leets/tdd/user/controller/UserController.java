@@ -5,6 +5,7 @@ import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,5 +55,20 @@ public class UserController {
     ) {
         ProfileRegistrationResponse response = userService.completeSignup(request);
         return ResponseEntity.ok(ApiResponse.success("프로필 등록에 성공하였습니다.", response));
+    }
+
+    @Operation(
+            summary = "계정탈퇴",
+            description = "비밀번호 재확인 후 계정을 soft delete(status=DELETED) 처리하고 refresh token을 무효화한다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody WithdrawalRequest request
+    ) {
+        userService.withdraw(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("계정 삭제에 성공했습니다."));
     }
 }
