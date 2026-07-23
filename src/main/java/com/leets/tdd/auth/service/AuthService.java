@@ -97,6 +97,14 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID));
 
+        // 로그인 이후 탈퇴/제한된 계정이 refresh token 만료 전까지 계속 재발급받는 것을 막는다.
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID);
+        }
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new AuthException(AuthErrorCode.ACCOUNT_BANNED);
+        }
+
         if (!refreshTokenHasher.hash(refreshToken).equals(user.getRefreshTokenHash())) {
             throw new AuthException(AuthErrorCode.REFRESH_TOKEN_INVALID);
         }
