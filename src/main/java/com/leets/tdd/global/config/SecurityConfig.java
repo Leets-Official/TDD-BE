@@ -1,5 +1,6 @@
 package com.leets.tdd.global.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leets.tdd.auth.jwt.JwtProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +25,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtProvider jwtProvider
+            JwtProvider jwtProvider,
+            ObjectMapper objectMapper
     ) throws Exception {
         // JwtAuthenticationFilter는 일부러 @Component로 등록하지 않고 여기서 직접 new한다.
         // @Component(Filter)로 등록해두면 @WebMvcTest가 대상 컨트롤러와 무관하게 모든 Filter 빈을
@@ -33,6 +35,7 @@ public class SecurityConfig {
         // 컨트롤러 테스트에서 이 문제로 컨텍스트 로딩이 깨졌었다). 빈으로 등록하지 않으면
         // 이 SecurityConfig를 실제로 import한 곳에서만 만들어지므로 그 문제가 없다.
         JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtProvider);
+        JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint = new JwtAuthenticationEntryPoint(objectMapper);
         http
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
@@ -45,6 +48,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/me").permitAll()
                         .anyRequest().authenticated()
                 )
+                // 토큰이 없거나/만료됐거나/유효하지 않아 인증에 실패하면 Security 기본 403(빈 바디)
+                // 대신 API 명세의 {"success":false,"message":"..."} 형식으로 응답한다.
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

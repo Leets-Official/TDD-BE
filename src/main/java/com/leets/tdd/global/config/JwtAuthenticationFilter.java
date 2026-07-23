@@ -1,7 +1,9 @@
 package com.leets.tdd.global.config;
 
 import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.auth.JwtAuthErrorType;
 import com.leets.tdd.global.auth.UserPrincipal;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,15 +24,18 @@ import java.util.List;
  * 누구인지 알려주는" 역할만 하고, "인증이 꼭 있어야 한다"는 판단은 하지 않는다).
  * principal은 global.auth.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
  * -> 컨트롤러에서는 @AuthenticationPrincipal UserPrincipal로 받을 수 있다.
- * 주의: 토큰이 없거나 잘못된 경우 여기서 401/403을 직접 만들지 않는다. Spring Security의
+ * 주의: 토큰이 없거나 잘못된 경우 여기서 401 응답 바디를 직접 만들지 않는다. Spring Security의
  * 필터 체인은 DispatcherServlet 이전 단계라 @RestControllerAdvice가 잡아주지 못하기 때문에,
- * 세밀한 에러 메시지(만료/서명오류 구분 등)가 필요하면 별도의 AuthenticationEntryPoint를
- * 추가해야 한다. 지금은 우선 "인증 안 됨" 상태로만 넘기고 Security의 기본 403으로 처리한다.
+ * 실패 이유(만료/서명오류 등 구분)만 request attribute(JWT_ERROR_ATTRIBUTE)에 남겨두고,
+ * 실제 {"success":false,"message":"..."} 형태의 응답은 JwtAuthenticationEntryPoint가 만든다.
  * 일부러 @Component로 등록하지 않는다 - SecurityConfig에서 직접 new해서 쓴다(이유는
  * SecurityConfig의 주석 참고: @WebMvcTest가 대상 컨트롤러와 무관하게 Filter 빈을 전부
  * 끌어오는 문제 때문).
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    /** 인증 실패 이유(JwtAuthErrorType)를 담아두는 request attribute 키. */
+    public static final String JWT_ERROR_ATTRIBUTE = "jwtAuthError";
 
     private final JwtProvider jwtProvider;
 
@@ -52,9 +57,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(new UserPrincipal(userId), null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (ExpiredJwtException e) {
+                SecurityContextHolder.clearContext();
+                request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.EXPIRED);
             } catch (JwtException | IllegalArgumentException e) {
                 SecurityContextHolder.clearContext();
+                request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.INVALID);
             }
+        } else {
+            // Authorization 헤더 자체가 없는 경우. 퍼블릭 엔드포인트일 수도 있어서 여기서 막지는
+            // 않고, 인증이 필요한 엔드포인트였다면 JwtAuthenticationEntryPoint가 이 값을 보고
+            // "토큰이 없다"는 메시지로 응답한다.
+            request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.MISSING);
         }
 
         filterChain.doFilter(request, response);
