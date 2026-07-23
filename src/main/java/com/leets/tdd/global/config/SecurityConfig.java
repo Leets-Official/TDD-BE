@@ -18,7 +18,8 @@ public class SecurityConfig {
             "/api/v1/health",
             "/api/v1/auth/email/**",
             "/swagger-ui/**",
-            "/v3/api-docs/**"
+            "/v3/api-docs/**",
+            "/api/v1/delivery-parties/**"
     };
 
     @Bean
@@ -37,15 +38,19 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        // 계정등록(회원가입 완료)은 아직 로그인 전 상태라 토큰이 없다. GET(마이페이지)은
-                        // 인증이 필요하니 이 경로/메서드만 예외로 공개한다.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/users/me").permitAll()
-                        .anyRequest().authenticated()
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        .authorizeHttpRequests(auth ->
+                                auth
+                                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                                        .anyRequest().authenticated()
+                        )
+                        .addFilterBefore(
+                                jwtAuthenticationFilter,
+                                UsernamePasswordAuthenticationFilter.class
+                        );
+
         return http.build();
     }
 
