@@ -1,5 +1,6 @@
 package com.leets.tdd.chat.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -10,11 +11,14 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    @Value("${websocket.allowed-origins}")
+    private String[] allowedOrigins;
+
     // 클라이언트가 처음 WebSocket 연결하는 주소
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*"); // 개발 단계: 모든 출처 허용
+                .setAllowedOriginPatterns(allowedOrigins);
     }
 
     // 메시지가 흐르는 통로 설정
