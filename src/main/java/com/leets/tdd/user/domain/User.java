@@ -102,6 +102,12 @@ public class User {
         this.updatedAt = now;
     }
 
+    // develop에서 정산/후기 기능(ReviewServiceImpl 등)이 (email, password, nickname) 순서로
+    // 만들던 생성자. 우리 쪽 생성자로 그대로 위임해서 나머지 필드는 기본값으로 채운다.
+    public User(String email, String password, String nickname) {
+        this(email, nickname, password, "", LocalDateTime.now());
+    }
+
     @PreUpdate
     private void onUpdate() {
         this.updatedAt = LocalDateTime.now();
@@ -177,5 +183,11 @@ public class User {
     public void updateRefreshToken(String refreshTokenHash, LocalDateTime refreshTokenExpiresAt) {
         this.refreshTokenHash = refreshTokenHash;
         this.refreshTokenExpiresAt = refreshTokenExpiresAt;
+    }
+
+    // develop의 정산/후기 기능(ReviewServiceImpl)에서 매너온도 갱신에 사용.
+    // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
+    public void updateMannerTemperature(BigDecimal delta) {
+        this.mannerTemperature = this.mannerTemperature.add(delta);
     }
 }
