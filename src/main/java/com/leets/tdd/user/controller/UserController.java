@@ -6,6 +6,7 @@ import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class UserController {
             description = "닉네임/프로필사진/매너온도/노쇼 제한 상태/기숙사 인증 상태를 조회한다. "
                     + "Authorization 헤더에 access token(Bearer)이 필요하다."
     )
+    @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MyPageResponse>> getMyPage(
             @AuthenticationPrincipal Long userId
