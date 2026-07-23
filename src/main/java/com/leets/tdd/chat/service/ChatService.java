@@ -21,9 +21,17 @@ public class ChatService {
         ChatMessage message;
 
         if (request.messageType() == MessageType.IMAGE) {
+            if (request.imageUrl() == null || request.imageUrl().isBlank()) {
+                throw new IllegalArgumentException("이미지 메시지에는 이미지 URL이 필요합니다.");
+            }
             message = ChatMessage.createImageMessage(chatRoomId, senderId, request.imageUrl());
+
         } else if (request.messageType() == MessageType.USER) {
+            if (request.content() == null || request.content().isBlank()) {
+                throw new IllegalArgumentException("메시지 내용이 비어 있습니다.");
+            }
             message = ChatMessage.createUserMessage(chatRoomId, senderId, request.content());
+
         } else {
             throw new IllegalArgumentException("허용되지 않은 메시지 타입입니다.");
         }
