@@ -35,4 +35,4 @@ jwt:
 
 
 websocket:
-  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:[*]}
+  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS}
