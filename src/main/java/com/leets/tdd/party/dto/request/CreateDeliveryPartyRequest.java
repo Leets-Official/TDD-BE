@@ -1,10 +1,11 @@
-package com.leets.tdd.deliveryparty.dto.response;
+package com.leets.tdd.party.dto.request;
+
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-public class CreateDeliveryPartyResponse {
-
-    private Long id;
+@Getter
+public class CreateDeliveryPartyRequest {
 
     private Long foodCategoryId;
 
@@ -17,8 +18,4 @@ public class CreateDeliveryPartyResponse {
     private Integer maxParticipants;
 
     private LocalDateTime orderExpectedAt;
-
-    private String status;
-
-    private LocalDateTime createdAt;
 }

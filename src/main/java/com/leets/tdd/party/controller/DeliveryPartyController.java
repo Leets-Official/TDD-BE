@@ -1,7 +1,7 @@
-package com.leets.tdd.deliveryparty.controller;
+package com.leets.tdd.party.controller;
 
-import com.leets.tdd.deliveryparty.dto.request.CreateDeliveryPartyRequest;
-import com.leets.tdd.deliveryparty.service.DeliveryPartyService;
+import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
+import com.leets.tdd.party.service.DeliveryPartyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
