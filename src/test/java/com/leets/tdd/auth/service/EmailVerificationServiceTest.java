@@ -16,11 +16,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -188,5 +191,25 @@ class EmailVerificationServiceTest {
         emailVerificationService.verifyCode(request);
 
         verify(emailVerificationRepository).markVerified(stored);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 인증이 15분 이내에 완료됐으면 소비(삭제)에 성공하고 true를 반환한다")
+    void consumeSignupVerification_withinWindow() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.SIGNUP), any(Duration.class)))
+                .thenReturn(true);
+
+        assertThat(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).isTrue();
+    }
+
+    @Test
+    @DisplayName("인증된 적이 없거나 창이 지났거나 이미 소비됐으면 false를 반환한다")
+    void consumeSignupVerification_notVerifiedOrAlreadyConsumed() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.SIGNUP), any(Duration.class)))
+                .thenReturn(false);
+
+        assertThat(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).isFalse();
     }
 }

@@ -24,3 +24,11 @@ spring:
           auth: true
           starttls:
             enable: true
+
+# access/refresh 토큰 발급용. 기본값(fallback)을 두지 않는다 - JWT_SECRET이 없으면
+# 기동 자체가 실패해야 "모두가 아는 임시 시크릿"으로 운영에 배포되는 사고를 막을 수 있다.
+# 로컬 개발용 임시 값은 application-local.yaml(local 프로필)에 따로 둔다.
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-validity-seconds: 1800 # 30분
+  refresh-token-validity-seconds: 2592000 # 30일(1달)

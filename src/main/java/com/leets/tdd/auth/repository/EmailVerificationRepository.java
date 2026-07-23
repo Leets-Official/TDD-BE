@@ -65,6 +65,17 @@ public class EmailVerificationRepository {
         jpaRepository.deleteByEmailAndPurpose(email, purpose);
     }
 
+    /**
+     * "최근(window 이내) 인증됐는지 확인 + 소비(삭제)"를 하나의 원자적 DB 연산으로 처리한다.
+     * true를 반환하면 이번 호출이 그 인증 기록을 실제로 소비(삭제)한 것이고,
+     * false면 조건을 만족하는 기록이 없었던(=인증 안 됐거나 이미 다른 요청이 먼저 소비한) 것이다.
+     */
+    @Transactional
+    public boolean consumeIfRecentlyVerified(String email, EmailPurpose purpose, Duration window) {
+        LocalDateTime cutoff = LocalDateTime.now().minus(window);
+        return jpaRepository.deleteVerifiedWithinWindow(email, purpose, cutoff) > 0;
+    }
+
     public boolean isRequestLimitExceeded(String email) {
         LocalDateTime windowStart = LocalDateTime.now().minus(REQUEST_WINDOW);
         return jpaRepository.countByEmailAndCreatedAtAfter(email, windowStart) >= MAX_REQUEST_COUNT_PER_WINDOW;
