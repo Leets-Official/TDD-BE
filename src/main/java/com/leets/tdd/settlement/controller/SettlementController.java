@@ -11,6 +11,9 @@ import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
 import com.leets.tdd.settlement.exception.SettlementErrorCode;
 import com.leets.tdd.settlement.exception.SettlementException;
 import com.leets.tdd.settlement.service.SettlementService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,11 +30,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
+@Tag(name = "Settlement", description = "배달팟 정산 API")
+@SecurityRequirement(name = "bearerAuth")
 public class SettlementController {
 
   private final SettlementService settlementService;
 
   @PostMapping("/parties/{partyId}/settlement")
+  @Operation(summary = "정산 요청 생성", description = "방장이 완료된 배달팟의 정산을 요청합니다.")
   public ResponseEntity<ApiResponse<SettlementDetailResponse>> createSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId,
@@ -43,6 +49,7 @@ public class SettlementController {
   }
 
   @GetMapping("/parties/{partyId}/settlement")
+  @Operation(summary = "정산 상세 조회", description = "배달팟 참여자가 정산 내역을 조회합니다.")
   public ResponseEntity<ApiResponse<SettlementDetailResponse>> getSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
@@ -52,6 +59,7 @@ public class SettlementController {
   }
 
   @PatchMapping("/parties/{partyId}/settlement/payments/me")
+  @Operation(summary = "내 송금 완료 처리", description = "정산 대상 참여자가 자신의 송금을 완료로 표시합니다.")
   public ResponseEntity<ApiResponse<PaymentStatusResponse>> markMyPaymentPaid(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
@@ -61,6 +69,7 @@ public class SettlementController {
   }
 
   @PatchMapping("/parties/{partyId}/settlement/payments/me/undo")
+  @Operation(summary = "내 송금 완료 되돌리기", description = "송금 완료 표시를 진행 중 상태로 되돌립니다.")
   public ResponseEntity<ApiResponse<PaymentStatusResponse>> undoMyPaymentPaid(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
@@ -70,6 +79,7 @@ public class SettlementController {
   }
 
   @PatchMapping("/parties/{partyId}/settlement/complete")
+  @Operation(summary = "정산 완료", description = "방장이 진행 중인 정산을 완료합니다.")
   public ResponseEntity<ApiResponse<SettlementCompletionResponse>> completeSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
@@ -79,6 +89,7 @@ public class SettlementController {
   }
 
   @PatchMapping("/parties/{partyId}/settlement/cancel")
+  @Operation(summary = "정산 취소", description = "방장이 진행 중인 정산 요청을 취소합니다.")
   public ResponseEntity<ApiResponse<SettlementCancelResponse>> cancelSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
@@ -88,6 +99,7 @@ public class SettlementController {
   }
 
   @GetMapping("/users/me/settlements")
+  @Operation(summary = "내 정산 현황 조회", description = "내가 송금할 정산과 방장으로서 받을 정산을 조회합니다.")
   public ResponseEntity<ApiResponse<MySettlementListResponse>> getMySettlements(
       @AuthenticationPrincipal UserPrincipal userPrincipal
   ) {
