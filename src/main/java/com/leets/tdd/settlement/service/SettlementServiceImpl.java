@@ -178,10 +178,22 @@ public class SettlementServiceImpl implements SettlementService {
         .mapToLong(MyOutgoingSettlementResponse::amount)
         .sum();
 
-    List<MyIncomingSettlementResponse> incoming = deliveryPartyRepository
+    List<DeliveryParty> incomingParties = deliveryPartyRepository
         .findAllByCreatorIdAndSettlementStatus(currentUserId, SettlementStatus.REQUESTED)
         .stream()
-        .map(this::toIncomingResponse)
+        .toList();
+    Map<Long, List<PartyParticipant>> participantsByPartyId = incomingParties.isEmpty()
+        ? Map.of()
+        : partyParticipantRepository.findAllByPartyIdIn(incomingParties.stream()
+            .map(DeliveryParty::getId)
+            .toList())
+            .stream()
+            .collect(Collectors.groupingBy(PartyParticipant::getPartyId));
+    List<MyIncomingSettlementResponse> incoming = incomingParties.stream()
+        .map(party -> toIncomingResponse(
+            party,
+            participantsByPartyId.getOrDefault(party.getId(), List.of())
+        ))
         .toList();
 
     return new MySettlementListResponse(
@@ -334,8 +346,10 @@ public class SettlementServiceImpl implements SettlementService {
     );
   }
 
-  private MyIncomingSettlementResponse toIncomingResponse(DeliveryParty party) {
-    List<PartyParticipant> participants = partyParticipantRepository.findAllByPartyId(party.getId());
+  private MyIncomingSettlementResponse toIncomingResponse(
+      DeliveryParty party,
+      List<PartyParticipant> participants
+  ) {
     List<PartyParticipant> paymentParticipants = participants.stream()
         .filter(PartyParticipant::isJoined)
         .filter(participant -> participant.getPaymentStatus() != null)

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.leets.tdd.party.domain.DeliveryParty;
@@ -18,6 +19,7 @@ import com.leets.tdd.settlement.domain.PaymentStatus;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.settlement.dto.request.CreateSettlementRequest;
 import com.leets.tdd.settlement.dto.request.SettlementPaymentRequest;
+import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
 import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
 import com.leets.tdd.settlement.exception.SettlementErrorCode;
 import com.leets.tdd.settlement.exception.SettlementException;
@@ -122,6 +124,27 @@ class SettlementServiceImplTest {
     assertThatThrownBy(() -> settlementService.completeSettlement(2L, 10L))
         .isInstanceOf(SettlementException.class)
         .hasMessage(SettlementErrorCode.NOT_HOST.getMessage());
+  }
+
+  @Test
+  void 내_수신_정산의_참여자는_일괄_조회한다() {
+    DeliveryParty party = requestedParty(10L, 1L);
+    PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
+    member.assignSettlementAmount(12_000);
+
+    given(partyParticipantRepository.findAllByUserIdAndPaymentStatusIsNotNull(1L))
+        .willReturn(List.of());
+    given(deliveryPartyRepository.findAllByCreatorIdAndSettlementStatus(1L, SettlementStatus.REQUESTED))
+        .willReturn(List.of(party));
+    given(partyParticipantRepository.findAllByPartyIdIn(List.of(10L)))
+        .willReturn(List.of(member));
+
+    MySettlementListResponse response = settlementService.getMySettlements(1L);
+
+    assertThat(response.incoming()).hasSize(1);
+    assertThat(response.incoming().getFirst().totalCount()).isEqualTo(1);
+    verify(partyParticipantRepository).findAllByPartyIdIn(List.of(10L));
+    verify(partyParticipantRepository, never()).findAllByPartyId(10L);
   }
 
   private DeliveryParty party(Long id, Long creatorId, PartyStatus status, SettlementStatus settlementStatus) {
