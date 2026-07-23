@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +19,8 @@ public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
 
+
+    // 배달팟 생성 API
     public CreateDeliveryPartyResponse createDeliveryParty(CreateDeliveryPartyRequest request) {
 
         DeliveryParty deliveryParty = new DeliveryParty(
@@ -50,5 +54,27 @@ public class DeliveryPartyService {
                 savedDeliveryParty.getStatus().name(),
                 savedDeliveryParty.getCreatedAt()
         );
+    }
+
+
+    // 배달팟 목록 조회 API
+    public List<CreateDeliveryPartyResponse> getDeliveryParties() {
+
+        List<DeliveryParty> deliveryParties =
+                deliveryPartyRepository.findAllByOrderByCreatedAtDesc();
+
+        return deliveryParties.stream()
+                .map(deliveryParty -> new CreateDeliveryPartyResponse(
+                        deliveryParty.getId(),
+                        deliveryParty.getFoodCategoryId(),
+                        deliveryParty.getTitle(),
+                        deliveryParty.getDescription(),
+                        deliveryParty.getMinParticipants(),
+                        deliveryParty.getMaxParticipants(),
+                        deliveryParty.getOrderExpectedAt(),
+                        deliveryParty.getStatus().name(),
+                        deliveryParty.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
     }
 }
