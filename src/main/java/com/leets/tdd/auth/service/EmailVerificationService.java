@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -28,6 +29,12 @@ public class EmailVerificationService {
 
     private static final int CODE_LENGTH = 6;
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    /**
+     * 이메일 인증 완료(verifiedAt) 후 회원가입(프로필 등록)을 마쳐야 하는 제한 시간.
+     * user 도메인의 /users/me(프로필 등록)에서 이 시간 내에 완료됐는지 확인하는 데 쓴다.
+     */
+    private static final Duration SIGNUP_COMPLETION_WINDOW = Duration.ofMinutes(15);
 
     /**
      * 이메일 단위로 "요청 횟수 확인 + 코드 저장"을 하나의 임계 구역으로 묶기 위한 락.
@@ -98,6 +105,23 @@ public class EmailVerificationService {
         }
 
         emailVerificationRepository.markVerified(verification);
+    }
+
+    /**
+     * user 도메인(/users/me)에서 회원가입을 마무리하기 직전에 호출한다.
+     * SIGNUP 목적으로 인증에 성공(verifiedAt != null)했고 그 시각으로부터 15분이 지나지
+     * 않은 기록이 있으면, 그 자리에서 원자적으로 소비(삭제)하고 true를 반환한다.
+     * signup_token 같은 별도 토큰 없이 이 DB 연산만으로 신원 확인 + 재사용(replay) 방지를 겸한다.
+     *
+     * 예전에는 "확인(isRecentlyVerifiedForSignup)"과 "소비(delete)"가 별개의 호출이라,
+     * 같은 이메일로 동시에 두 번 요청이 오면 delete가 실행되기 전에 둘 다 확인을 통과해서
+     * 유저가 중복 생성될 수 있는 TOCTOU(check-then-act) 틈이 있었다. 지금은 확인과 소비를
+     * 하나의 DELETE로 묶어서, 동시에 여러 요청이 와도 단 하나만 true를 받는다.
+     */
+    @Transactional
+    public boolean consumeSignupVerification(String email) {
+        return emailVerificationRepository.consumeIfRecentlyVerified(
+                email, EmailPurpose.SIGNUP, SIGNUP_COMPLETION_WINDOW);
     }
 
     private void validateNotAlreadyRegistered(String email) {

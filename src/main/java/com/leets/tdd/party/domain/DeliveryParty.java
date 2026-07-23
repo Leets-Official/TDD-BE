@@ -71,4 +71,38 @@ public class DeliveryParty {
 
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
+
+  public DeliveryParty(
+          Long creatorId,
+          Long foodCategoryId,
+          String title,
+          String description,
+          Integer minParticipants,
+          Integer maxParticipants,
+          LocalDateTime orderExpectedAt,
+          PartyStatus status,
+          LocalDateTime closedAt,
+          SettlementStatus settlementStatus,
+          Integer settlementTotalAmount,
+          LocalDateTime settlementRequestedAt,
+          Long settlementBankAccountId,
+          LocalDateTime createdAt,
+          LocalDateTime updatedAt
+  ) {
+    this.creatorId = creatorId;
+    this.foodCategoryId = foodCategoryId;
+    this.title = title;
+    this.description = description;
+    this.minParticipants = minParticipants;
+    this.maxParticipants = maxParticipants;
+    this.orderExpectedAt = orderExpectedAt;
+    this.status = status;
+    this.closedAt = closedAt;
+    this.settlementStatus = settlementStatus;
+    this.settlementTotalAmount = settlementTotalAmount;
+    this.settlementRequestedAt = settlementRequestedAt;
+    this.settlementBankAccountId = settlementBankAccountId;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+  }
 }
