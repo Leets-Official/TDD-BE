@@ -15,14 +15,17 @@ public class ChatService {
 
     private final ChatMessageRepository chatMessageRepository;
 
+    // 사용자가 보낸 메시지 저장. 시스템 메시지는 이 경로로 만들 수 없다.
     @Transactional
     public ChatMessageResponse saveMessage(Long chatRoomId, Long senderId, ChatMessageRequest request) {
         ChatMessage message;
 
         if (request.messageType() == MessageType.IMAGE) {
             message = ChatMessage.createImageMessage(chatRoomId, senderId, request.imageUrl());
-        } else {
+        } else if (request.messageType() == MessageType.USER) {
             message = ChatMessage.createUserMessage(chatRoomId, senderId, request.content());
+        } else {
+            throw new IllegalArgumentException("허용되지 않은 메시지 타입입니다.");
         }
 
         ChatMessage saved = chatMessageRepository.save(message);

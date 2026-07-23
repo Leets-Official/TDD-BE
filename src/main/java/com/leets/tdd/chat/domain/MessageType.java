@@ -1,10 +1,9 @@
 package com.leets.tdd.chat.domain;
 
 public enum MessageType {
-    USER,                 // 일반 사용자 메시지
-    IMAGE,                // 이미지 메시지
-    TRANSFER_REQUEST,     // 송금 요청 (계좌 카드)
-    SETTLEMENT_REQUEST,   // 정산 요청
-    REVIEW_PROMPT,        // 후기 유도
-    DELIVERY_ARRIVED      // 배달 도착
+    USER,                     // 일반 사용자 메시지
+    IMAGE,                    // 이미지 메시지
+    DELIVERY_ARRIVED,         // 시스템: 배달 도착
+    DELIVERY_ARRIVED_CANCEL,  // 시스템: 배달 도착 취소
+    SETTLEMENT_REQUEST        // 시스템: 정산 요청(계좌 포함)
 }
