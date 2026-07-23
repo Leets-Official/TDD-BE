@@ -54,4 +54,50 @@ public class PartyParticipant {
 
   @Column(name = "paid_at")
   private LocalDateTime paidAt;
+
+  public PartyParticipant(
+      Long partyId,
+      Long userId,
+      PartyParticipantRole role,
+      PartyParticipantStatus status,
+      LocalDateTime joinedAt
+  ) {
+    this.partyId = partyId;
+    this.userId = userId;
+    this.role = role;
+    this.status = status;
+    this.joinedAt = joinedAt;
+  }
+
+  public void assignSettlementAmount(int amount) {
+    this.settlementAmount = amount;
+    this.paymentStatus = PaymentStatus.PENDING;
+    this.paidAt = null;
+  }
+
+  public void clearSettlement() {
+    this.settlementAmount = null;
+    this.paymentStatus = null;
+    this.paidAt = null;
+  }
+
+  public void markPaid(LocalDateTime paidAt) {
+    if (paymentStatus != PaymentStatus.PENDING) {
+      throw new IllegalStateException("송금 완료 처리할 수 없는 상태입니다.");
+    }
+    this.paymentStatus = PaymentStatus.PAID;
+    this.paidAt = paidAt;
+  }
+
+  public void undoPaid() {
+    if (paymentStatus != PaymentStatus.PAID) {
+      throw new IllegalStateException("되돌릴 송금 완료 내역이 없습니다.");
+    }
+    this.paymentStatus = PaymentStatus.PENDING;
+    this.paidAt = null;
+  }
+
+  public boolean isJoined() {
+    return status == PartyParticipantStatus.JOINED;
+  }
 }

@@ -105,4 +105,28 @@ public class DeliveryParty {
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
+
+  public void requestSettlement(int totalAmount, Long bankAccountId, LocalDateTime requestedAt) {
+    if (settlementStatus != SettlementStatus.NONE && settlementStatus != SettlementStatus.CANCELED) {
+      throw new IllegalStateException("정산 요청을 시작할 수 없는 상태입니다.");
+    }
+    this.settlementStatus = SettlementStatus.REQUESTED;
+    this.settlementTotalAmount = totalAmount;
+    this.settlementBankAccountId = bankAccountId;
+    this.settlementRequestedAt = requestedAt;
+  }
+
+  public void completeSettlement() {
+    if (settlementStatus != SettlementStatus.REQUESTED) {
+      throw new IllegalStateException("진행 중인 정산만 완료할 수 있습니다.");
+    }
+    this.settlementStatus = SettlementStatus.COMPLETED;
+  }
+
+  public void cancelSettlement() {
+    if (settlementStatus != SettlementStatus.REQUESTED) {
+      throw new IllegalStateException("진행 중인 정산만 취소할 수 있습니다.");
+    }
+    this.settlementStatus = SettlementStatus.CANCELED;
+  }
 }
