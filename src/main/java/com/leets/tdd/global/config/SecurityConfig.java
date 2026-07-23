@@ -31,12 +31,6 @@ public class SecurityConfig {
             JwtProvider jwtProvider,
             ObjectMapper objectMapper
     ) throws Exception {
-        // JwtAuthenticationFilter는 일부러 @Component로 등록하지 않고 여기서 직접 new한다.
-        // @Component(Filter)로 등록해두면 @WebMvcTest가 대상 컨트롤러와 무관하게 모든 Filter 빈을
-        // 자동으로 끌어오는데, 그러면 SecurityConfig를 import조차 안 한 다른 컨트롤러의 슬라이스
-        // 테스트까지 이 필터를 만들려다 JwtProvider 빈을 못 찾아 실패한다(실제로 리뷰 도메인
-        // 컨트롤러 테스트에서 이 문제로 컨텍스트 로딩이 깨졌었다). 빈으로 등록하지 않으면
-        // 이 SecurityConfig를 실제로 import한 곳에서만 만들어지므로 그 문제가 없다.
         JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtProvider);
         JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint = new JwtAuthenticationEntryPoint(objectMapper);
         http
