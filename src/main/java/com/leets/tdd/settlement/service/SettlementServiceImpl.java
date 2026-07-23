@@ -34,10 +34,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SettlementServiceImpl implements SettlementService {
@@ -54,7 +56,7 @@ public class SettlementServiceImpl implements SettlementService {
       Long partyId,
       CreateSettlementRequest request
   ) {
-    DeliveryParty party = getParty(partyId);
+    DeliveryParty party = getPartyForUpdate(partyId);
     validateHost(party, currentUserId);
     validateSettlementCreatable(party);
     BankAccount bankAccount = bankAccountRepository.findByUserId(currentUserId)
@@ -67,6 +69,7 @@ public class SettlementServiceImpl implements SettlementService {
     request.payments().forEach(payment -> joinedParticipants.get(payment.userId())
         .assignSettlementAmount(payment.amount()));
     party.requestSettlement(request.totalAmount(), bankAccount.getId(), LocalDateTime.now());
+    log.info("settlement.created partyId={}, hostId={}, targetCount={}", partyId, currentUserId, request.payments().size());
 
     return toSettlementDetailResponse(party, bankAccount, participants);
   }
@@ -88,7 +91,7 @@ public class SettlementServiceImpl implements SettlementService {
   @Override
   @Transactional
   public PaymentStatusResponse markMyPaymentPaid(Long currentUserId, Long partyId) {
-    DeliveryParty party = getParty(partyId);
+    DeliveryParty party = getPartyForUpdate(partyId);
     PartyParticipant participant = getJoinedParticipant(partyId, currentUserId);
     validateSettlementRequested(party);
     if (participant.getPaymentStatus() == null || participant.getSettlementAmount() == null) {
@@ -98,13 +101,14 @@ public class SettlementServiceImpl implements SettlementService {
       throw new SettlementException(SettlementErrorCode.PAYMENT_ALREADY_COMPLETED);
     }
     participant.markPaid(LocalDateTime.now());
+    log.info("settlement.payment_marked_paid partyId={}, userId={}", partyId, currentUserId);
     return toPaymentStatusResponse(partyId, participant);
   }
 
   @Override
   @Transactional
   public PaymentStatusResponse undoMyPaymentPaid(Long currentUserId, Long partyId) {
-    DeliveryParty party = getParty(partyId);
+    DeliveryParty party = getPartyForUpdate(partyId);
     PartyParticipant participant = getJoinedParticipant(partyId, currentUserId);
     validateSettlementRequested(party);
     if (participant.getPaymentStatus() == null || participant.getSettlementAmount() == null) {
@@ -114,13 +118,14 @@ public class SettlementServiceImpl implements SettlementService {
       throw new SettlementException(SettlementErrorCode.PAYMENT_NOT_COMPLETED);
     }
     participant.undoPaid();
+    log.info("settlement.payment_undone partyId={}, userId={}", partyId, currentUserId);
     return toPaymentStatusResponse(partyId, participant);
   }
 
   @Override
   @Transactional
   public SettlementCompletionResponse completeSettlement(Long currentUserId, Long partyId) {
-    DeliveryParty party = getParty(partyId);
+    DeliveryParty party = getPartyForUpdate(partyId);
     validateHost(party, currentUserId);
     validateSettlementRequested(party);
     long unpaidCount = partyParticipantRepository.findAllByPartyId(partyId).stream()
@@ -128,13 +133,14 @@ public class SettlementServiceImpl implements SettlementService {
         .filter(participant -> participant.getPaymentStatus() == PaymentStatus.PENDING)
         .count();
     party.completeSettlement();
+    log.info("settlement.completed partyId={}, hostId={}, unpaidCount={}", partyId, currentUserId, unpaidCount);
     return new SettlementCompletionResponse(partyId, party.getSettlementStatus().name(), unpaidCount);
   }
 
   @Override
   @Transactional
   public SettlementCancelResponse cancelSettlement(Long currentUserId, Long partyId) {
-    DeliveryParty party = getParty(partyId);
+    DeliveryParty party = getPartyForUpdate(partyId);
     validateHost(party, currentUserId);
     validateSettlementRequested(party);
     long paidCount = partyParticipantRepository.findAllByPartyId(partyId).stream()
@@ -142,6 +148,7 @@ public class SettlementServiceImpl implements SettlementService {
         .filter(participant -> participant.getPaymentStatus() == PaymentStatus.PAID)
         .count();
     party.cancelSettlement();
+    log.info("settlement.canceled partyId={}, hostId={}, paidCount={}", partyId, currentUserId, paidCount);
     return new SettlementCancelResponse(partyId, party.getSettlementStatus().name(), paidCount);
   }
 
@@ -186,6 +193,11 @@ public class SettlementServiceImpl implements SettlementService {
 
   private DeliveryParty getParty(Long partyId) {
     return deliveryPartyRepository.findById(partyId)
+        .orElseThrow(() -> new SettlementException(SettlementErrorCode.PARTY_NOT_FOUND));
+  }
+
+  private DeliveryParty getPartyForUpdate(Long partyId) {
+    return deliveryPartyRepository.findWithLockById(partyId)
         .orElseThrow(() -> new SettlementException(SettlementErrorCode.PARTY_NOT_FOUND));
   }
 

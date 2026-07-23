@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
@@ -60,7 +61,7 @@ class SettlementServiceImplTest {
     User hostUser = user(1L, "방장");
     User memberUser = user(2L, "참여자");
 
-    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
     given(partyParticipantRepository.findAllByPartyId(10L)).willReturn(List.of(host, member));
     given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(account));
     given(account.getId()).willReturn(100L);
@@ -76,12 +77,13 @@ class SettlementServiceImplTest {
     assertThat(response.hostAmount()).isEqualTo(8_000);
     assertThat(member.getSettlementAmount()).isEqualTo(12_000);
     assertThat(member.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
+    verify(deliveryPartyRepository).findWithLockById(10L);
   }
 
   @Test
   void 방장은_정산_대상에_포함할_수_없다() {
     DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
-    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
     given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(BankAccount.class)));
     given(partyParticipantRepository.findAllByPartyId(10L)).willReturn(List.of(
         participant(10L, 1L, PartyParticipantRole.HOST)
@@ -101,7 +103,7 @@ class SettlementServiceImplTest {
     DeliveryParty party = requestedParty(10L, 1L);
     PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
     member.assignSettlementAmount(12_000);
-    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
     given(partyParticipantRepository.findByPartyIdAndUserId(10L, 2L)).willReturn(Optional.of(member));
 
     settlementService.markMyPaymentPaid(2L, 10L);
@@ -109,12 +111,13 @@ class SettlementServiceImplTest {
 
     assertThat(member.getPaymentStatus()).isEqualTo(PaymentStatus.PENDING);
     assertThat(member.getPaidAt()).isNull();
+    verify(deliveryPartyRepository, org.mockito.Mockito.times(2)).findWithLockById(10L);
   }
 
   @Test
   void 비방장은_정산을_완료할_수_없다() {
     DeliveryParty party = requestedParty(10L, 1L);
-    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
 
     assertThatThrownBy(() -> settlementService.completeSettlement(2L, 10L))
         .isInstanceOf(SettlementException.class)
