@@ -25,4 +25,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("UPDATE User u SET u.refreshTokenHash = '' "
             + "WHERE u.refreshTokenExpiresAt < :cutoff AND u.refreshTokenHash <> ''")
     int clearExpiredRefreshTokens(@Param("cutoff") LocalDateTime cutoff);
+
+    // 로그인 실패 횟수 증가를 하나의 UPDATE로 원자적으로 처리한다(find-후-메모리증가-save 방식은
+    // 동시 요청이 오면 서로의 증가분을 덮어써서 3회 제한이 우회될 수 있어서 이렇게 바꿨다).
+    // windowStart(=now - 5분)보다 마지막 실패시각이 이전이면(또는 아예 없으면) 1로 리셋,
+    // 아니면 기존 값에서 +1 한다. DB가 이 UPDATE 실행 동안 행 잠금을 잡아서 동시 요청도 순차 처리된다.
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE User u SET "
+            + "u.failedLoginAttempts = CASE WHEN u.lastFailedLoginAt IS NULL OR u.lastFailedLoginAt < :windowStart "
+            + "THEN 1 ELSE u.failedLoginAttempts + 1 END, "
+            + "u.lastFailedLoginAt = :now "
+            + "WHERE u.id = :userId")
+    void recordFailedLogin(
+            @Param("userId") Long userId,
+            @Param("now") LocalDateTime now,
+            @Param("windowStart") LocalDateTime windowStart
+    );
 }

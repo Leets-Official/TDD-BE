@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  * 로그인(이메일/비밀번호 -> access/refresh 토큰 발급).
  * 존재하지 않는 이메일/탈퇴한 계정/비밀번호 불일치는 전부 같은 메시지(LOGIN_FAILED)로 응답해서
  * 어떤 이메일이 실제 가입 계정인지 유추할 수 없게 한다(계정 존재 여부 노출 방지).
- * 5분 내 3회 실패하면 15분간 로그인을 막는다(User.recordFailedLogin/isLoginBlocked)../
+ * 5분 내 3회 실패하면 15분간 로그인을 막는다(UserRepository.recordFailedLogin/User.isLoginBlocked).
  */
 @Service
 @RequiredArgsConstructor
@@ -54,9 +54,14 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            user.recordFailedLogin();
-            userRepository.save(user);
-            if (user.isLoginBlocked()) {
+            // find-후-메모리증가-save 대신 DB에서 원자적으로 증가시킨다(동시 요청으로 인한
+            // 카운트 유실 방지). @Modifying 쿼리는 영속성 컨텍스트를 못 건드리니, 최신 값을
+            // 보려면 다시 조회해야 한다(clearAutomatically = true라 캐시된 값이 아니라 DB를 다시 읽는다).
+            LocalDateTime now = LocalDateTime.now();
+            userRepository.recordFailedLogin(user.getId(), now, now.minus(User.LOGIN_ATTEMPT_WINDOW));
+            User updated = userRepository.findById(user.getId())
+                    .orElseThrow(() -> new AuthException(AuthErrorCode.LOGIN_FAILED));
+            if (updated.isLoginBlocked()) {
                 throw new AuthException(AuthErrorCode.LOGIN_ATTEMPT_LIMIT_EXCEEDED);
             }
             throw new AuthException(AuthErrorCode.LOGIN_FAILED);

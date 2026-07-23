@@ -94,7 +94,9 @@ public class User {
     private LocalDateTime lastFailedLoginAt;
 
     private static final int MAX_LOGIN_ATTEMPTS = 3;
-    private static final Duration LOGIN_ATTEMPT_WINDOW = Duration.ofMinutes(5);
+    // AuthService가 원자적 UPDATE(UserRepository.recordFailedLogin)의 windowStart 파라미터를
+    // 계산할 때도 같은 값을 써야 해서 public으로 둔다.
+    public static final Duration LOGIN_ATTEMPT_WINDOW = Duration.ofMinutes(5);
     private static final Duration LOGIN_BLOCK_DURATION = Duration.ofMinutes(15);
 
     public User(String email, String nickname, String password,
@@ -211,19 +213,10 @@ public class User {
                 && LocalDateTime.now().isBefore(lastFailedLoginAt.plus(LOGIN_BLOCK_DURATION));
     }
 
-    // 비밀번호 불일치로 로그인에 실패했을 때 호출한다.
-    // 마지막 실패로부터 5분(LOGIN_ATTEMPT_WINDOW)이 지났으면 새 시도 구간으로 보고 1부터 다시 세고,
-    // 그 안이면 누적해서 센다. 3회(MAX_LOGIN_ATTEMPTS) 도달 이후에도 계속 실패하면(차단 중 재시도는
-    // 이 메서드까지 오지 않지만, 안전하게) 이 시각 기준으로 15분 차단이 계속 갱신된다.
-    public void recordFailedLogin() {
-        LocalDateTime now = LocalDateTime.now();
-        if (lastFailedLoginAt == null || now.isAfter(lastFailedLoginAt.plus(LOGIN_ATTEMPT_WINDOW))) {
-            failedLoginAttempts = 1;
-        } else {
-            failedLoginAttempts++;
-        }
-        lastFailedLoginAt = now;
-    }
+    // 비밀번호 불일치로 로그인에 실패했을 때의 카운트 증가는 여기(엔티티 메서드 + save)가 아니라
+    // UserRepository.recordFailedLogin()의 원자적 UPDATE로 처리한다. 같은 유저에게 동시에 여러
+    // 실패 요청이 오면 "읽고-메모리에서 증가시키고-저장"하는 방식은 두 요청이 같은 값을 읽어서
+    // 하나가 유실되는 race condition이 생기기 때문이다(3회 제한이 동시요청으로 우회될 수 있음).
 
     // 로그인에 성공했을 때 실패 카운트/차단 상태를 초기화한다.
     public void resetLoginAttempts() {
