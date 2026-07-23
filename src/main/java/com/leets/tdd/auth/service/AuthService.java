@@ -34,7 +34,10 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final RefreshTokenHasher refreshTokenHasher;
 
-    @Transactional
+    // 비밀번호 불일치로 실패 횟수를 기록(recordFailedLogin + save)한 뒤 AuthException을 던지는데,
+    // 기본 규칙대로면 RuntimeException 때문에 이 저장까지 롤백돼서 로그인 제한이 영영 걸리지 않는다.
+    // AuthException 때문에는 롤백하지 않도록 명시해서, 실패 기록은 커밋되고 예외만 그대로 던져지게 한다.
+    @Transactional(noRollbackFor = AuthException.class)
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email()).orElse(null);
 
