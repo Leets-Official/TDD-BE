@@ -1,8 +1,8 @@
 package com.leets.tdd.global.config;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.global.auth.JwtAuthErrorType;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtAuthErrorType;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -22,7 +22,7 @@ import java.util.List;
  * 토큰이 없거나(퍼블릭 엔드포인트) 유효하지 않으면 그냥 다음 필터로 넘긴다 - 실제로 인증을
  * 요구할지 말지는 SecurityConfig의 authorizeHttpRequests가 결정한다(이 필터는 "토큰이 있으면
  * 누구인지 알려주는" 역할만 하고, "인증이 꼭 있어야 한다"는 판단은 하지 않는다).
- * principal은 global.auth.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
+ * principal은 global.jwt.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
  * -> 컨트롤러에서는 @AuthenticationPrincipal UserPrincipal로 받을 수 있다.
  * 주의: 토큰이 없거나 잘못된 경우 여기서 401 응답 바디를 직접 만들지 않는다. Spring Security의
  * 필터 체인은 DispatcherServlet 이전 단계라 @RestControllerAdvice가 잡아주지 못하기 때문에,

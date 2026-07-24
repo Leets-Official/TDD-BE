@@ -1,7 +1,7 @@
 package com.leets.tdd.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;

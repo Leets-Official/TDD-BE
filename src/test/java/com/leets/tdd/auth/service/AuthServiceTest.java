@@ -1,8 +1,8 @@
 package com.leets.tdd.auth.service;
 
 import com.leets.tdd.auth.dto.ResetPasswordRequest;
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;

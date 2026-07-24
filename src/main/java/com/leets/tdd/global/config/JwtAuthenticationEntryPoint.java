@@ -1,7 +1,7 @@
 package com.leets.tdd.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leets.tdd.global.auth.JwtAuthErrorType;
+import com.leets.tdd.global.jwt.JwtAuthErrorType;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import jakarta.servlet.http.HttpServletRequest;

@@ -1,6 +1,6 @@
 package com.leets.tdd.global.health;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

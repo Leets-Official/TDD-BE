@@ -1,7 +1,7 @@
 package com.leets.tdd.global.config;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;

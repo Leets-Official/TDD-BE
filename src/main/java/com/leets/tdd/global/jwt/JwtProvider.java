@@ -1,4 +1,4 @@
-package com.leets.tdd.auth.jwt;
+package com.leets.tdd.global.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
