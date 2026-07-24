@@ -8,6 +8,8 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.ProfileUpdateRequest;
+import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
@@ -88,6 +90,38 @@ public class UserService {
 
         return new ProfileRegistrationResponse(
                 user.getNickname(), request.dormitory(), tokens.accessToken(), tokens.refreshToken(), "Bearer");
+    }
+
+    /**
+     * 마이페이지 > 프로필 수정. 닉네임/기숙사 동/프로필 사진을 수정한다.
+     * 닉네임이 기존과 같으면(대소문자까지 완전히 동일) 중복 검사에서 제외한다(자기 자신과 비교해
+     * 항상 중복으로 걸리는 것을 방지). 기숙사 정보가 아직 없는 사용자가 처음 동을 등록하는 경우도
+     * 이 API로 처리하며, 이때는 인증 사진 없이 NOT_SUBMITTED 상태로 row를 새로 만든다.
+     */
+    @Transactional
+    public ProfileUpdateResponse updateProfile(Long userId, ProfileUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        String newNickname = request.nickname();
+        if (!newNickname.equals(user.getNickname()) && userRepository.existsByNickname(newNickname)) {
+            throw new UserException(UserErrorCode.NICKNAME_DUPLICATE);
+        }
+
+        String newProfileImageUrl = request.profileImageUrl();
+        user.updateProfile(newNickname, newProfileImageUrl == null || newProfileImageUrl.isBlank()
+                ? null : newProfileImageUrl);
+        userRepository.save(user);
+
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory == null) {
+            dormitory = new Dormitory(userId, request.dormitory(), null);
+            dormitoryRepository.save(dormitory);
+        } else {
+            dormitory.changeDormitory(request.dormitory());
+        }
+
+        return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
     }
 
     /**
