@@ -212,4 +212,24 @@ class EmailVerificationServiceTest {
 
         assertThat(emailVerificationService.consumeSignupVerification("abcd@gachon.ac.kr")).isFalse();
     }
+
+    @Test
+    @DisplayName("RESET_PASSWORD 인증이 15분 이내에 완료됐으면 소비(삭제)에 성공하고 true를 반환한다")
+    void consumePasswordResetVerification_withinWindow() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.RESET_PASSWORD), any(Duration.class)))
+                .thenReturn(true);
+
+        assertThat(emailVerificationService.consumePasswordResetVerification("abcd@gachon.ac.kr")).isTrue();
+    }
+
+    @Test
+    @DisplayName("RESET_PASSWORD 인증이 없거나 창이 지났거나 이미 소비됐으면 false를 반환한다")
+    void consumePasswordResetVerification_notVerifiedOrAlreadyConsumed() {
+        when(emailVerificationRepository.consumeIfRecentlyVerified(
+                eq("abcd@gachon.ac.kr"), eq(EmailPurpose.RESET_PASSWORD), any(Duration.class)))
+                .thenReturn(false);
+
+        assertThat(emailVerificationService.consumePasswordResetVerification("abcd@gachon.ac.kr")).isFalse();
+    }
 }
