@@ -68,7 +68,7 @@ public class ChatService {
         Pageable pageable = PageRequest.of(0, boundedSize);
 
         List<ChatMessage> messages =
-                chatMessageRepository.findByChatRoomIdOrderByCreatedAtDesc(chatRoom.getId(), pageable);
+                chatMessageRepository.findByChatRoomIdOrderByCreatedAtDescIdDesc(chatRoom.getId(), pageable);
 
         // DB에서는 최신순으로 가져오지만, 화면에는 오래된 메시지부터 보여야 하므로 순서를 뒤집는다
         return messages.reversed().stream()
