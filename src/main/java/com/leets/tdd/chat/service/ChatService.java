@@ -20,6 +20,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatService {
 
+    // 한 번에 조회 가능한 메시지 개수 범위
+    private static final int MIN_PAGE_SIZE = 1;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
 
@@ -58,7 +62,10 @@ public class ChatService {
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> getRecentMessages(Long partyId, int size) {
         ChatRoom chatRoom = findRoomByPartyId(partyId);
-        Pageable pageable = PageRequest.of(0, size);
+
+        // 0 이하나 과도하게 큰 값이 들어와도 안전하도록 조회 개수를 범위 안으로 제한한다
+        int boundedSize = Math.min(Math.max(size, MIN_PAGE_SIZE), MAX_PAGE_SIZE);
+        Pageable pageable = PageRequest.of(0, boundedSize);
 
         List<ChatMessage> messages =
                 chatMessageRepository.findByChatRoomIdOrderByCreatedAtDesc(chatRoom.getId(), pageable);

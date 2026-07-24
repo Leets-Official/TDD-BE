@@ -27,7 +27,7 @@ public class ChatQueryController {
 
     @Operation(
             summary = "채팅방 정보 조회",
-            description = "배달팟에 속한 채팅방 정보를 조회한다."
+            description = "채팅방의 최신 메시지를 조회한다. size를 지정하지 않으면 10개를 반환하며, 1~100 범위로 제한된다."
     )
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping
