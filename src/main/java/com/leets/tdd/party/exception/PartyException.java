@@ -1,14 +1,10 @@
 package com.leets.tdd.party.exception;
 
-import lombok.Getter;
+import com.leets.tdd.global.error.CustomException;
 
-@Getter
-public class PartyException extends RuntimeException {
-
-    private final PartyErrorCode errorCode;
+public class PartyException extends CustomException {
 
     public PartyException(PartyErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
+        super(errorCode);
     }
 }
