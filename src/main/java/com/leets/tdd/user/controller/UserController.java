@@ -1,12 +1,14 @@
 package com.leets.tdd.user.controller;
 
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
+import com.leets.tdd.user.dto.PushSettingRequest;
+import com.leets.tdd.user.dto.PushSettingResponse;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -74,6 +76,22 @@ public class UserController {
     ) {
         ProfileUpdateResponse response = userService.updateProfile(userPrincipal.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("계정 수정에 성공하였습니다.", response));
+    }
+
+    @Operation(
+            summary = "알림 설정 변경",
+            description = "전체 알림 on/off 통합 토글 하나만 바꾼다(MVP 범위, 카테고리별 세분화 없음). "
+                    + "발송 방식은 클라이언트 필터링이라 서버는 User.pushEnabled 값만 갱신한다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/me/push-setting")
+    public ResponseEntity<ApiResponse<PushSettingResponse>> updatePushSetting(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody PushSettingRequest request
+    ) {
+        PushSettingResponse response = userService.updatePushSetting(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("알림 설정이 변경되었습니다.", response));
     }
 
     @Operation(

@@ -1,7 +1,7 @@
 package com.leets.tdd.user.service;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
@@ -10,6 +10,8 @@ import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
+import com.leets.tdd.user.dto.PushSettingRequest;
+import com.leets.tdd.user.dto.PushSettingResponse;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
@@ -122,6 +124,21 @@ public class UserService {
         }
 
         return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+    }
+
+    /**
+     * 마이페이지 > 알림 설정. 전체 알림 on/off 통합 토글 하나만 갱신한다(MVP 범위).
+     * 카테고리 구분, 다른 도메인 조회/연동 없이 User.pushEnabled만 바꾼다.
+     */
+    @Transactional
+    public PushSettingResponse updatePushSetting(Long userId, PushSettingRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updatePushEnabled(request.pushEnabled());
+        userRepository.save(user);
+
+        return new PushSettingResponse(user.isPushEnabled());
     }
 
     /**

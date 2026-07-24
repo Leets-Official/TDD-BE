@@ -1,7 +1,7 @@
 package com.leets.tdd.user.service;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
@@ -11,6 +11,8 @@ import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
+import com.leets.tdd.user.dto.PushSettingRequest;
+import com.leets.tdd.user.dto.PushSettingResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -365,5 +367,39 @@ class UserServiceTest {
         assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.APPROVED);
         assertThat(dormitory.getDormVerifiedUntil()).isNotNull();
         verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 알림 설정 변경 시 예외가 발생한다")
+    void updatePushSetting_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updatePushSetting(1L, new PushSettingRequest(false)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("알림 설정을 끄면 pushEnabled가 false로 바뀐다")
+    void updatePushSetting_disables() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(false));
+
+        assertThat(response.pushEnabled()).isFalse();
+        assertThat(user.isPushEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("알림 설정을 켜면 pushEnabled가 true로 바뀐다")
+    void updatePushSetting_enables() {
+        User user = newUser();
+        user.updatePushEnabled(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(true));
+
+        assertThat(response.pushEnabled()).isTrue();
     }
 }
