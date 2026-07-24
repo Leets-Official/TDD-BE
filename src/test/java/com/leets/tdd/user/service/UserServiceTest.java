@@ -9,6 +9,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -288,5 +289,62 @@ class UserServiceTest {
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(deleted.getStatus().name()).isEqualTo("ACTIVE");
         verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    // ===== withdraw =====
+
+    @Test
+    @DisplayName("비밀번호가 맞으면 탈퇴 처리(soft delete)되고 refresh token이 무효화된다")
+    void withdraw_success() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+
+        userService.withdraw(1L, new WithdrawalRequest("raw-pw"));
+
+        assertThat(user.getStatus().name()).isEqualTo("DELETED");
+        assertThat(user.getRefreshTokenHash()).isEmpty();
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("유저를 찾을 수 없으면 USER_NOT_FOUND 예외가 발생한다")
+    void withdraw_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("BANNED 계정은 탈퇴할 수 없다")
+    void withdraw_bannedAccount_throwsWithdrawalNotAllowed() {
+        User banned = newUser();
+        banned.ban();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(banned));
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.WITHDRAWAL_NOT_ALLOWED.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("비밀번호가 틀리면 탈퇴가 거부된다")
+    void withdraw_passwordMismatch() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong-pw", "encoded-pw")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("wrong-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.PASSWORD_MISMATCH.getMessage());
+
+        assertThat(user.getStatus().name()).isEqualTo("ACTIVE");
+        verify(userRepository, never()).save(any());
     }
 }
