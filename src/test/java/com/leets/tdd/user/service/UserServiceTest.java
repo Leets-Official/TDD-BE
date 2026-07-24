@@ -9,6 +9,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.ChangePasswordRequest;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
@@ -401,5 +402,55 @@ class UserServiceTest {
         PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(true));
 
         assertThat(response.pushEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 비밀번호 수정 시 예외가 발생한다")
+    void changePassword_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("현재비번", "새비번1234")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하지 않으면 예외가 발생한다")
+    void changePassword_currentPasswordMismatch() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("틀린비번", user.getPassword())).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("틀린비번", "새비번1234")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.CURRENT_PASSWORD_MISMATCH.getMessage());
+    }
+
+    @Test
+    @DisplayName("새 비밀번호가 기존과 같으면 예외가 발생한다")
+    void changePassword_sameAsCurrent() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("현재비번", user.getPassword())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("현재비번", "현재비번")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.NEW_PASSWORD_SAME_AS_CURRENT.getMessage());
+    }
+
+    @Test
+    @DisplayName("검증을 통과하면 비밀번호를 바꾸고 refresh token을 무효화한다")
+    void changePassword_success() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("현재비번", user.getPassword())).thenReturn(true);
+        when(passwordEncoder.matches("새비번1234", user.getPassword())).thenReturn(false);
+        when(passwordEncoder.encode("새비번1234")).thenReturn("encoded-new-pw");
+
+        userService.changePassword(1L, new ChangePasswordRequest("현재비번", "새비번1234"));
+
+        assertThat(user.getPassword()).isEqualTo("encoded-new-pw");
+        assertThat(user.getRefreshTokenHash()).isEmpty();
+        verify(userRepository).save(user);
     }
 }

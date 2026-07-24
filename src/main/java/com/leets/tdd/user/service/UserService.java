@@ -8,6 +8,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.ChangePasswordRequest;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
@@ -139,6 +140,29 @@ public class UserService {
         userRepository.save(user);
 
         return new PushSettingResponse(user.isPushEnabled());
+    }
+
+    /**
+     * 마이페이지 > 비밀번호 수정. 현재 비밀번호로 본인 확인 후 새 비밀번호로 바꾸고,
+     * 기존 refresh token을 무효화한다(clearRefreshToken - 로그아웃/탈퇴와 동일한 관례).
+     * access token 자체는 상태 없는 JWT라 만료 전까지는 계속 쓸 수 있고, 재로그인은
+     * refresh token으로 재발급받아야 할 때만 필요해진다.
+     */
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new UserException(UserErrorCode.CURRENT_PASSWORD_MISMATCH);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new UserException(UserErrorCode.NEW_PASSWORD_SAME_AS_CURRENT);
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.newPassword()));
+        user.clearRefreshToken();
+        userRepository.save(user);
     }
 
     /**

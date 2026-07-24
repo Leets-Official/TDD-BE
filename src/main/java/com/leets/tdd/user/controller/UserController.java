@@ -5,6 +5,7 @@ import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.ChangePasswordRequest;
 import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
@@ -92,6 +93,23 @@ public class UserController {
     ) {
         PushSettingResponse response = userService.updatePushSetting(userPrincipal.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("알림 설정이 변경되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "비밀번호 수정",
+            description = "현재 비밀번호를 재확인한 뒤 새 비밀번호로 변경한다(기존과 동일한 비밀번호는 불가). "
+                    + "성공 시 기존 refresh token은 무효화되어 재로그인이 필요하다"
+                    + "(access token이 살아있는 동안은 계속 사용 가능). "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        userService.changePassword(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호 수정에 성공하였습니다."));
     }
 
     @Operation(
