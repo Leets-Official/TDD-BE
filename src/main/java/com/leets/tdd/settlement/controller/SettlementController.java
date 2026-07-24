@@ -1,6 +1,6 @@
 package com.leets.tdd.settlement.controller;
 
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.settlement.dto.request.CreateSettlementRequest;
 import com.leets.tdd.settlement.dto.request.RegisterBankAccountRequest;
@@ -47,6 +47,16 @@ public class SettlementController {
     BankAccountResponse response = settlementService.registerBankAccount(currentUserId(userPrincipal), request);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.success("계좌등록에 성공하였습니다.", response));
+  }
+
+  @PatchMapping("/users/me/bank-account")
+  @Operation(summary = "계좌 수정", description = "마이페이지에서 등록된 계좌 정보를 재입력해서 수정합니다. 등록된 계좌가 없으면 실패합니다.")
+  public ResponseEntity<ApiResponse<BankAccountResponse>> updateBankAccount(
+      @AuthenticationPrincipal UserPrincipal userPrincipal,
+      @Valid @RequestBody RegisterBankAccountRequest request
+  ) {
+    BankAccountResponse response = settlementService.updateBankAccount(currentUserId(userPrincipal), request);
+    return ResponseEntity.ok(ApiResponse.success("계좌 정보 수정에 성공하였습니다.", response));
   }
 
   @PostMapping("/parties/{partyId}/settlement")

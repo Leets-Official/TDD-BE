@@ -13,6 +13,8 @@ public interface SettlementService {
 
   BankAccountResponse registerBankAccount(Long currentUserId, RegisterBankAccountRequest request);
 
+  BankAccountResponse updateBankAccount(Long currentUserId, RegisterBankAccountRequest request);
+
   SettlementDetailResponse createSettlement(Long currentUserId, Long partyId, CreateSettlementRequest request);
 
   SettlementDetailResponse getSettlement(Long currentUserId, Long partyId);

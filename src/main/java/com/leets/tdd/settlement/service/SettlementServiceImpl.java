@@ -66,6 +66,16 @@ public class SettlementServiceImpl implements SettlementService {
 
   @Override
   @Transactional
+  public BankAccountResponse updateBankAccount(Long currentUserId, RegisterBankAccountRequest request) {
+    BankAccount bankAccount = bankAccountRepository.findByUserId(currentUserId)
+        .orElseThrow(() -> new SettlementException(SettlementErrorCode.BANK_ACCOUNT_NOT_FOUND));
+    bankAccount.update(request.bankName(), request.accountNumber(), request.accountHolder());
+    log.info("bank_account.updated userId={}", currentUserId);
+    return toBankAccountResponse(bankAccount);
+  }
+
+  @Override
+  @Transactional
   public SettlementDetailResponse createSettlement(
       Long currentUserId,
       Long partyId,

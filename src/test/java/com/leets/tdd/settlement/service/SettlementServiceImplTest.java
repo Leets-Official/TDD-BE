@@ -85,6 +85,32 @@ class SettlementServiceImplTest {
   }
 
   @Test
+  void 계좌를_수정한다() {
+    BankAccount account = new BankAccount(1L, "국민은행", "123456123456", "가나다");
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(account));
+
+    BankAccountResponse response = settlementService.updateBankAccount(
+        1L, new RegisterBankAccountRequest("신한은행", "1234512345", "홍길동")
+    );
+
+    assertThat(response.bankName()).isEqualTo("신한은행");
+    assertThat(response.accountNumber()).isEqualTo("123451****");
+    assertThat(response.accountHolder()).isEqualTo("홍길동");
+    assertThat(account.getBankName()).isEqualTo("신한은행");
+  }
+
+  @Test
+  void 등록된_계좌가_없으면_수정_시_예외가_발생한다() {
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> settlementService.updateBankAccount(
+        1L, new RegisterBankAccountRequest("신한은행", "1234512345", "홍길동")
+    ))
+        .isInstanceOf(SettlementException.class)
+        .hasMessage(SettlementErrorCode.BANK_ACCOUNT_NOT_FOUND.getMessage());
+  }
+
+  @Test
   void 방장이_완료된_팟에_정산을_요청한다() {
     DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
     PartyParticipant host = participant(10L, 1L, PartyParticipantRole.HOST);
