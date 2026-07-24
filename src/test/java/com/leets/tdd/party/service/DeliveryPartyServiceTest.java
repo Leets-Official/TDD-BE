@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import java.time.LocalDateTime;
@@ -66,6 +67,8 @@ class DeliveryPartyServiceTest {
         assertThat(response.getStatus())
                 .isEqualTo("RECRUITING");
     }
+
+
     @Test
     void 존재하지_않는_배달팟_조회시_예외발생() {
 
@@ -78,8 +81,6 @@ class DeliveryPartyServiceTest {
         assertThatThrownBy(() ->
                 deliveryPartyService.getDeliveryPartyDetail(999L)
         )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("존재하지 않는 배달팟입니다.");
+                .isInstanceOf(PartyException.class);
     }
 }
-

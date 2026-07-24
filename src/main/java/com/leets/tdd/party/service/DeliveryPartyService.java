@@ -5,6 +5,8 @@ import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.exception.PartyErrorCode;
+import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
@@ -91,7 +93,7 @@ public class DeliveryPartyService {
     public DeliveryPartyDetailResponse getDeliveryPartyDetail(Long partyId) {
 
         DeliveryParty deliveryParty = deliveryPartyRepository.findById(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 배달팟입니다."));
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
         return new DeliveryPartyDetailResponse(deliveryParty);
     }
