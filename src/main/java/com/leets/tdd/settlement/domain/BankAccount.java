@@ -39,4 +39,14 @@ public class BankAccount {
 
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
+
+  public BankAccount(Long userId, String bankName, String accountNumber, String accountHolder) {
+    this.userId = userId;
+    this.bankName = bankName;
+    this.accountNumber = accountNumber;
+    this.accountHolder = accountHolder;
+    LocalDateTime now = LocalDateTime.now();
+    this.createdAt = now;
+    this.updatedAt = now;
+  }
 }
