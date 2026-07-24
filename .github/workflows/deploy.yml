@@ -75,6 +75,10 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
+          test -n "$JWT_SECRET" || {
+            echo "::error::JWT_SECRET is not configured"
+            exit 1
+          }
           umask 077
           {
             printf 'SPRING_DATASOURCE_URL=%s\n' "$SPRING_DATASOURCE_URL"
