@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementSummaryResponse;
 import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
