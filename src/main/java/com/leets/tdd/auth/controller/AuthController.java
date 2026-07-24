@@ -4,6 +4,7 @@ import com.leets.tdd.auth.dto.EmailVerificationRequest;
 import com.leets.tdd.auth.dto.LoginRequest;
 import com.leets.tdd.auth.dto.LoginResponse;
 import com.leets.tdd.auth.dto.RefreshTokenRequest;
+import com.leets.tdd.auth.dto.ResetPasswordRequest;
 import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.service.AuthService;
 import com.leets.tdd.auth.service.EmailVerificationService;
@@ -16,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -94,5 +96,18 @@ public class AuthController {
     ) {
         authService.logout(userPrincipal.userId());
         return ResponseEntity.ok(ApiResponse.success("로그아웃에 성공하였습니다."));
+    }
+
+    @Operation(
+            summary = "비밀번호 찾기(재설정)",
+            description = "이메일 인증(RESET_PASSWORD) 완료 후 15분 이내에 새 비밀번호로 재설정한다. "
+                    + "별도 토큰 없이 email + 인증 완료 기록(DB)만으로 처리한다."
+    )
+    @PatchMapping("/password-reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다."));
     }
 }
