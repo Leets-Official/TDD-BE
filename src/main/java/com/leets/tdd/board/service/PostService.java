@@ -105,6 +105,9 @@ public class PostService {
             if (!parent.getPostId().equals(postId)) {
                 throw new IllegalArgumentException("다른 게시글의 댓글에는 답글을 달 수 없습니다.");
             }
+            if (parent.getParentCommentId() != null) {
+                throw new IllegalArgumentException("대댓글에는 다시 답글을 달 수 없습니다.");
+            }
         }
 
         Comment comment = Comment.create(postId, userId, parentCommentId, request.content());
