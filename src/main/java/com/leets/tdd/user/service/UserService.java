@@ -4,6 +4,8 @@ import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.global.s3.ImageStorageService;
 import com.leets.tdd.global.s3.InvalidImageException;
+import com.leets.tdd.global.s3.ProfileImageStorageService;
+import com.leets.tdd.global.s3.UploadedObjectMeta;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
@@ -12,6 +14,10 @@ import com.leets.tdd.user.dto.DormVerificationPresignRequest;
 import com.leets.tdd.user.dto.DormVerificationPresignResponse;
 import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
+import com.leets.tdd.user.dto.ProfileImageConfirmRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignResponse;
+import com.leets.tdd.user.dto.ProfileImageUploadResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ChangePasswordRequest;
@@ -52,6 +58,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final NicknameGenerator nicknameGenerator;
     private final ImageStorageService imageStorageService;
+    private final ProfileImageStorageService profileImageStorageService;
 
     @Transactional
     public MyPageResponse getMyPage(Long userId) {
@@ -136,6 +143,56 @@ public class UserService {
     }
 
     /**
+     * 마이페이지 > 프로필 사진 업로드 1단계(발급). 기숙사 인증과 같은 presign/confirm 흐름이지만
+     * 공개 버킷을 쓴다. 프로필은 승인 절차가 없어(기숙사와 달리 "이미 진행 중" 같은 충돌 상태가
+     * 없음) DB 조회 없이 바로 key + Presigned PUT URL을 발급한다.
+     */
+    @Transactional(readOnly = true)
+    public ProfileImagePresignResponse presignProfileImageUpload(Long userId, ProfileImagePresignRequest request) {
+        String key;
+        try {
+            key = profileImageStorageService.buildProfileImageKey(userId, request.contentType());
+        } catch (InvalidImageException e) {
+            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
+        }
+        String uploadUrl = profileImageStorageService.generatePresignedPutUrl(key, request.contentType());
+
+        return new ProfileImagePresignResponse(key, uploadUrl);
+    }
+
+    /**
+     * 마이페이지 > 프로필 사진 업로드 2단계(확정). 클라이언트가 보낸 key를 그대로 신뢰하지 않고
+     * (1) 호출자 본인 몫의 key인지, (2) 실제로 S3(공개 버킷)에 업로드가 됐는지, (3) 용량/형식이
+     * 기준 안에 있는지를 검증한 뒤에만 User.profileImageUrl(실제로는 key 저장)에 반영한다.
+     * 응답의 profileImageUrl은 공개 버킷 base URL과 key를 조립한 완성된 URL이다(만료 없음).
+     */
+    @Transactional
+    public ProfileImageUploadResponse confirmProfileImageUpload(Long userId, ProfileImageConfirmRequest request) {
+        String key = request.key();
+
+        if (!profileImageStorageService.belongsTo(userId, key)) {
+            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        UploadedObjectMeta meta = profileImageStorageService.headObject(key)
+                .orElseThrow(() -> new UserException(UserErrorCode.PROFILE_IMAGE_UPLOAD_NOT_FOUND));
+
+        if (!profileImageStorageService.isSizeWithinLimit(meta.contentLength())
+                || !profileImageStorageService.isAllowedContentType(meta.contentType())) {
+            profileImageStorageService.deleteObject(key);
+            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
+        }
+
+        user.updateProfileImageKey(key);
+        userRepository.save(user);
+
+        return new ProfileImageUploadResponse(profileImageStorageService.buildPublicUrl(key));
+    }
+
+    /**
      * 마이페이지 > 기숙사 인증하기 1단계(발급). 브라우저가 S3에 직접 올릴 수 있도록 key와
      * Presigned PUT URL을 발급한다. DB는 여기서 건드리지 않는다(확정 단계에서만 반영).
      * 이미 PENDING(심사중)이거나 APPROVED(승인)면 업로드를 시작할 필요가 없으니 여기서 막는다.
@@ -183,7 +240,7 @@ public class UserService {
             throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
         }
 
-        ImageStorageService.UploadedObjectMeta meta = imageStorageService.headObject(key)
+        UploadedObjectMeta meta = imageStorageService.headObject(key)
                 .orElseThrow(() -> new UserException(UserErrorCode.DORM_VERIFICATION_UPLOAD_NOT_FOUND));
 
         if (!imageStorageService.isSizeWithinLimit(meta.contentLength())

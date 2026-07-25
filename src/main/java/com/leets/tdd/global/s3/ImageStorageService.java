@@ -155,8 +155,4 @@ public class ImageStorageService {
     public boolean isAllowedContentType(String contentType) {
         return ImageContentType.from(contentType).isPresent();
     }
-
-    /** HeadObject 응답에서 필요한 필드만 추린 값. */
-    public record UploadedObjectMeta(long contentLength, String contentType) {
-    }
 }

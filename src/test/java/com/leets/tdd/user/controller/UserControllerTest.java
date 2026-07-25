@@ -6,6 +6,8 @@ import com.leets.tdd.user.domain.UserStatus;
 import com.leets.tdd.user.dto.DormVerificationPresignResponse;
 import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
+import com.leets.tdd.user.dto.ProfileImagePresignResponse;
+import com.leets.tdd.user.dto.ProfileImageUploadResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.UserRepository;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -156,6 +159,91 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verify(userService, never()).withdraw(any(), any());
+    }
+
+    @Test
+    @DisplayName("profileImageUrl에 빈 값이 아닌 값을 넣으면 400을 반환하고 서비스가 호출되지 않는다")
+    void updateProfile_withNonEmptyProfileImageUrl_returns400() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+
+        mockMvc.perform(patch("/api/v1/users/me/profile")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content("{\"nickname\":\"가나디\",\"dormitory\":\"1기숙사\",\"profileImageUrl\":\"https://img.example.com/a.png\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).updateProfile(any(), any());
+    }
+
+    @Test
+    @DisplayName("프로필 사진 발급 요청을 보내면 key와 업로드 URL을 받는다")
+    void presignProfileImageUpload_success_returns200() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+        when(userService.presignProfileImageUpload(eq(1L), any()))
+                .thenReturn(new ProfileImagePresignResponse(
+                        "profiles/1/uuid.jpg", "https://presigned.example.com/put"));
+
+        mockMvc.perform(post("/api/v1/users/me/profile-image/presign")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content("{\"contentType\":\"image/jpeg\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.key").value("profiles/1/uuid.jpg"))
+                .andExpect(jsonPath("$.data.upload_url").value("https://presigned.example.com/put"));
+    }
+
+    @Test
+    @DisplayName("토큰 없이 프로필 사진 발급을 요청하면 401을 반환하고 서비스가 호출되지 않는다")
+    void presignProfileImageUpload_withoutToken_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/users/me/profile-image/presign")
+                        .contentType("application/json")
+                        .content("{\"contentType\":\"image/jpeg\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).presignProfileImageUpload(any(), any());
+    }
+
+    @Test
+    @DisplayName("프로필 사진 확정 요청을 보내면 프로필 사진이 변경된다")
+    void confirmProfileImageUpload_success_returns200() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+        when(userService.confirmProfileImageUpload(eq(1L), any()))
+                .thenReturn(new ProfileImageUploadResponse(
+                        "https://assets-public.example.com/profiles/1/uuid.jpg"));
+
+        mockMvc.perform(post("/api/v1/users/me/profile-image/confirm")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content("{\"key\":\"profiles/1/uuid.jpg\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profile_image_url")
+                        .value("https://assets-public.example.com/profiles/1/uuid.jpg"));
+    }
+
+    @Test
+    @DisplayName("토큰 없이 프로필 사진 확정을 요청하면 401을 반환하고 서비스가 호출되지 않는다")
+    void confirmProfileImageUpload_withoutToken_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/users/me/profile-image/confirm")
+                        .contentType("application/json")
+                        .content("{\"key\":\"profiles/1/uuid.jpg\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).confirmProfileImageUpload(any(), any());
+    }
+
+    @Test
+    @DisplayName("본인 몫이 아닌 key로 프로필 사진 확정을 시도하면 400을 반환한다")
+    void confirmProfileImageUpload_invalidKey_returns400() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+        when(userService.confirmProfileImageUpload(eq(1L), any()))
+                .thenThrow(new UserException(UserErrorCode.INVALID_PROFILE_IMAGE));
+
+        mockMvc.perform(post("/api/v1/users/me/profile-image/confirm")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content("{\"key\":\"profiles/2/uuid.jpg\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("입력값이 올바르지 않습니다."));
     }
 
     @Test
