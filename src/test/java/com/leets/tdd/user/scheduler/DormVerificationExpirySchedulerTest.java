@@ -1,9 +1,9 @@
 package com.leets.tdd.user.scheduler;
 
 import com.leets.tdd.global.storage.ImageStorageService;
-import com.leets.tdd.user.domain.DormStatus;
-import com.leets.tdd.user.domain.Dormitory;
-import com.leets.tdd.user.repository.DormitoryRepository;
+import com.leets.tdd.global.storage.exception.ImageErrorCode;
+import com.leets.tdd.global.storage.exception.ImageException;
+import com.leets.tdd.user.service.DormVerificationExpiryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,21 +11,22 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+// DB 반영(DormVerificationExpiryService)과 S3 삭제를 분리한 뒤의 스케줄러는 순수 오케스트레이션만
+// 한다 - "삭제할 key 목록을 받아서, 하나씩 지운다(하나 실패해도 나머지는 계속)"만 검증하면 된다.
+// DB 쪽 로직(EXPIRED 전환, key 수집)은 DormVerificationExpiryServiceTest에서 별도로 검증한다.
 @ExtendWith(MockitoExtension.class)
 class DormVerificationExpirySchedulerTest {
 
     @Mock
-    private DormitoryRepository dormitoryRepository;
+    private DormVerificationExpiryService dormVerificationExpiryService;
 
     @Mock
     private ImageStorageService imageStorageService;
@@ -34,10 +35,9 @@ class DormVerificationExpirySchedulerTest {
     private DormVerificationExpiryScheduler scheduler;
 
     @Test
-    @DisplayName("만료 대상이 없으면 아무 것도 하지 않는다")
-    void expireOverdueVerifications_noOverdue_doesNothing() {
-        when(dormitoryRepository.findByDormStatusAndDormVerifiedUntilBefore(eq(DormStatus.APPROVED), any()))
-                .thenReturn(List.of());
+    @DisplayName("삭제할 이미지가 없으면 S3를 호출하지 않는다")
+    void expireOverdueVerifications_noImageKeys_doesNotCallDelete() {
+        when(dormVerificationExpiryService.expireOverdueVerifications()).thenReturn(List.of());
 
         scheduler.expireOverdueVerifications();
 
@@ -45,51 +45,28 @@ class DormVerificationExpirySchedulerTest {
     }
 
     @Test
-    @DisplayName("만료 대상이 있으면 EXPIRED로 전환하고 S3 이미지도 삭제한다")
-    void expireOverdueVerifications_overdueFound_expiresAndDeletesImage() {
-        Dormitory dormitory = new Dormitory(1L, "1기숙사", "dormitory-verifications/1/uuid.jpg");
-        dormitory.approve(LocalDateTime.now().minusDays(1));
-
-        when(dormitoryRepository.findByDormStatusAndDormVerifiedUntilBefore(eq(DormStatus.APPROVED), any()))
-                .thenReturn(List.of(dormitory));
+    @DisplayName("삭제할 이미지가 있으면 각각 S3에서 지운다")
+    void expireOverdueVerifications_imageKeysReturned_deletesEach() {
+        when(dormVerificationExpiryService.expireOverdueVerifications())
+                .thenReturn(List.of("dormitory-verifications/1/a.jpg", "dormitory-verifications/2/b.jpg"));
 
         scheduler.expireOverdueVerifications();
 
-        assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        verify(imageStorageService).delete("dormitory-verifications/1/uuid.jpg");
-    }
-
-    @Test
-    @DisplayName("여러 건이 만료 대상이면 전부 처리한다")
-    void expireOverdueVerifications_multipleOverdue_expiresAll() {
-        Dormitory first = new Dormitory(1L, "1기숙사", "dormitory-verifications/1/a.jpg");
-        first.approve(LocalDateTime.now().minusDays(2));
-        Dormitory second = new Dormitory(2L, "2기숙사", "dormitory-verifications/2/b.jpg");
-        second.approve(LocalDateTime.now().minusHours(1));
-
-        when(dormitoryRepository.findByDormStatusAndDormVerifiedUntilBefore(eq(DormStatus.APPROVED), any()))
-                .thenReturn(List.of(first, second));
-
-        scheduler.expireOverdueVerifications();
-
-        assertThat(first.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        assertThat(second.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
         verify(imageStorageService).delete("dormitory-verifications/1/a.jpg");
         verify(imageStorageService).delete("dormitory-verifications/2/b.jpg");
     }
 
     @Test
-    @DisplayName("이미지 key가 없는 건은 삭제를 시도하지 않는다")
-    void expireOverdueVerifications_withoutImageKey_doesNotCallDelete() {
-        Dormitory dormitory = new Dormitory(1L, "1기숙사", null);
-        dormitory.approve(LocalDateTime.now().minusDays(1));
-
-        when(dormitoryRepository.findByDormStatusAndDormVerifiedUntilBefore(eq(DormStatus.APPROVED), any()))
-                .thenReturn(List.of(dormitory));
+    @DisplayName("특정 이미지 삭제가 실패해도 나머지 이미지는 계속 삭제를 시도한다")
+    void expireOverdueVerifications_oneDeletionFails_continuesWithRest() {
+        when(dormVerificationExpiryService.expireOverdueVerifications())
+                .thenReturn(List.of("dormitory-verifications/1/a.jpg", "dormitory-verifications/2/b.jpg"));
+        doThrow(new ImageException(ImageErrorCode.IMAGE_STORAGE_ERROR))
+                .when(imageStorageService).delete("dormitory-verifications/1/a.jpg");
 
         scheduler.expireOverdueVerifications();
 
-        assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        verify(imageStorageService, never()).delete(any());
+        verify(imageStorageService).delete("dormitory-verifications/1/a.jpg");
+        verify(imageStorageService).delete("dormitory-verifications/2/b.jpg");
     }
 }
