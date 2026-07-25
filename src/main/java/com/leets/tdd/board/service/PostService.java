@@ -10,6 +10,8 @@ import com.leets.tdd.board.dto.PostDetailResponse;
 import com.leets.tdd.board.dto.PostListResponse;
 import com.leets.tdd.board.repository.CommentRepository;
 import com.leets.tdd.board.repository.PostRepository;
+import com.leets.tdd.global.error.CommonErrorCode;
+import com.leets.tdd.global.error.CustomException;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -101,12 +103,12 @@ public class PostService {
         Long parentCommentId = request.parentCommentId();
         if (parentCommentId != null) {
             Comment parent = commentRepository.findById(parentCommentId)
-                    .orElseThrow(() -> new IllegalArgumentException("부모 댓글을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new CustomException(CommonErrorCode.NOT_FOUND));
             if (!parent.getPostId().equals(postId)) {
-                throw new IllegalArgumentException("다른 게시글의 댓글에는 답글을 달 수 없습니다.");
+                throw new CustomException(CommonErrorCode.INVALID_INPUT);
             }
             if (parent.getParentCommentId() != null) {
-                throw new IllegalArgumentException("대댓글에는 다시 답글을 달 수 없습니다.");
+                throw new CustomException(CommonErrorCode.INVALID_INPUT);
             }
         }
 
@@ -116,7 +118,7 @@ public class PostService {
 
     private Post findPost(Long postId) {
         return postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(CommonErrorCode.NOT_FOUND));
     }
 
     private String findNickname(Long userId) {
