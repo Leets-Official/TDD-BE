@@ -71,3 +71,9 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// 실행 가능한 bootJar만 남긴다. plain jar까지 생기면 배포 스크립트가
+// build/libs/*.jar 중 어느 것을 집을지 모호해진다.
+tasks.named('jar') {
+    enabled = false
+}
