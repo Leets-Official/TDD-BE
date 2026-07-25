@@ -2,6 +2,7 @@ package com.leets.tdd.board.repository;
 
 import com.leets.tdd.board.domain.Comment;
 import com.leets.tdd.board.dto.CommentCount;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,7 @@ import java.util.List;
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     // 특정 게시글의 댓글을 오래된 순으로 가져온다.
-    List<Comment> findByPostIdOrderByCreatedAtAscIdAsc(Long postId);
+    List<Comment> findByPostIdOrderByCreatedAtAscIdAsc(Long postId, Pageable pageable);
 
     // 게시글 하나의 댓글 수
     long countByPostId(Long postId);

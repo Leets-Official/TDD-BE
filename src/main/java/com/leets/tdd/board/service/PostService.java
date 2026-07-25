@@ -28,6 +28,7 @@ public class PostService {
 
     private static final int MIN_PAGE_SIZE = 1;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_COMMENT_SIZE = 500;
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
@@ -74,12 +75,13 @@ public class PostService {
         );
     }
 
-    /** 게시글의 댓글 목록을 오래된 순으로 조회한다. */
+    /** 게시글의 댓글 목록을 오래된 순으로 조회한다(최대 조회 개수 제한). */
     @Transactional(readOnly = true)
     public List<CommentResponse> getComments(Long postId) {
         findPost(postId);
 
-        List<Comment> comments = commentRepository.findByPostIdOrderByCreatedAtAscIdAsc(postId);
+        Pageable pageable = PageRequest.of(0, MAX_COMMENT_SIZE);
+        List<Comment> comments = commentRepository.findByPostIdOrderByCreatedAtAscIdAsc(postId, pageable);
         if (comments.isEmpty()) {
             return List.of();
         }
