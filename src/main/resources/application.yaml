@@ -1,3 +1,11 @@
+# 운영에서는 Caddy 리버스 프록시가 HTTPS를 종료하고 127.0.0.1:8080으로 평문 전달한다.
+# 이 설정이 없으면 앱이 원래 요청 스킴을 http로 인식해, Swagger의 서버 URL과
+# 절대 경로 응답이 http://로 생성된다. HTTPS 페이지에서 그 주소를 호출하면
+# 브라우저가 혼합 콘텐츠로 차단한다.
+# 애플리케이션 포트는 외부에 노출돼 있지 않아 X-Forwarded-* 헤더는 Caddy만 붙일 수 있다.
+server:
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: TDD-BE
