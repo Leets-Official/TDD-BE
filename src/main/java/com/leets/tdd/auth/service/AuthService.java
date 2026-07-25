@@ -3,6 +3,7 @@ package com.leets.tdd.auth.service;
 import com.leets.tdd.auth.dto.LoginRequest;
 import com.leets.tdd.auth.dto.LoginResponse;
 import com.leets.tdd.auth.dto.RefreshTokenRequest;
+import com.leets.tdd.auth.dto.ResetPasswordRequest;
 import com.leets.tdd.auth.exception.AuthErrorCode;
 import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.jwt.JwtProvider;
@@ -35,6 +36,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenHasher refreshTokenHasher;
+    private final EmailVerificationService emailVerificationService;
 
     // 비밀번호 불일치로 실패 횟수를 기록(recordFailedLogin + save)한 뒤 AuthException을 던지는데,
     // 기본 규칙대로면 RuntimeException 때문에 이 저장까지 롤백돼서 로그인 제한이 영영 걸리지 않는다.
@@ -141,6 +143,26 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
         user.clearRefreshToken();
+        userRepository.save(user);
+    }
+
+    /**
+     * 비밀번호 찾기(재설정) 마지막 단계. 별도 토큰 없이, email + 그 이메일로 RESET_PASSWORD
+     * 목적 인증에 성공한 기록(15분 이내)만으로 신원을 확인한다(회원가입 완료와 동일한 패턴).
+     * 인증 기록이 없거나/이미 소비됐거나/15분이 지났으면 consumePasswordResetVerification이
+     * false를 반환하고, 그 경우 인증 절차를 처음부터 다시 밟아야 한다는 의미로 INVALID_VERIFICATION을
+     * 던진다(회원가입 완료 때와 같은 에러코드 재사용 - 성격이 같은 실패라 메시지도 그대로 맞다).
+     */
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!emailVerificationService.consumePasswordResetVerification(request.email())) {
+            throw new UserException(UserErrorCode.INVALID_VERIFICATION);
+        }
+
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updatePassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
     }
 }

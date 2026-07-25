@@ -48,4 +48,24 @@ public class Report {
 
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
+
+  public static Report create(
+      Long partyId,
+      Long reporterId,
+      Long reportedUserId,
+      ReportReason reason,
+      String content
+  ) {
+    LocalDateTime now = LocalDateTime.now();
+    Report report = new Report();
+    report.partyId = partyId;
+    report.reporterId = reporterId;
+    report.reportedUserId = reportedUserId;
+    report.reason = reason;
+    report.content = content;
+    report.status = ReportStatus.PENDING;
+    report.createdAt = now;
+    report.updatedAt = now;
+    return report;
+  }
 }

@@ -206,6 +206,11 @@ public class User {
         this.refreshTokenHash = "";
     }
 
+    // 비밀번호 찾기(재설정)에서 사용. 인자는 이미 인코딩된 해시여야 한다(평문을 여기서 인코딩하지 않음).
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     // develop의 정산/후기 기능(ReviewServiceImpl)에서 매너온도 갱신에 사용.
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {
