@@ -14,3 +14,14 @@ jwt:
 
 client:
   allowed-origins: http://localhost:[*]
+
+# 로컬 기동용 임시 버킷 값. 실제 업로드를 시도하면 자격 증명이 없어 실패하지만,
+# 컨텍스트 로딩과 단위 테스트에는 지장이 없다. 실제 S3 연동 테스트가 필요하면
+# IAM Identity Center 권한 세트와 AWS SSO 프로필을 인프라 담당에게 요청한다.
+s3:
+  private-bucket: ${S3_PRIVATE_BUCKET:tdd-assets-local}
+  public-bucket: ${S3_PUBLIC_BUCKET:tdd-public-local}
+  public-base-url: ${S3_PUBLIC_BASE_URL:https://tdd-public-local.s3.ap-northeast-2.amazonaws.com}
+  region: ${AWS_REGION:ap-northeast-2}
+  presigned-url-validity-seconds: 300
+  max-file-size-bytes: 10485760
