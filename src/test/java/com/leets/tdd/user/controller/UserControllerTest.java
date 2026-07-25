@@ -1,6 +1,6 @@
 package com.leets.tdd.user.controller;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.config.SecurityConfig;
 import com.leets.tdd.user.domain.UserStatus;
 import com.leets.tdd.user.dto.MyPageResponse;
