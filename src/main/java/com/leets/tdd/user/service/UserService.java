@@ -123,9 +123,15 @@ public class UserService {
             throw new UserException(UserErrorCode.NICKNAME_DUPLICATE);
         }
 
+        // profileImageUrl 필드 자체를 생략(null)했으면 기존 사진을 그대로 두고, 명시적으로 빈
+        // 문자열을 보냈을 때만 삭제(null)로 반영한다 - 그래야 닉네임/기숙사 동만 바꾸는 요청이
+        // 매번 사진을 지워버리는 사고를 피할 수 있다(DTO의 @Pattern("^$")이 null 또는 빈 문자열만
+        // 통과시키므로 여기 도달하는 시점엔 그 둘 중 하나뿐이다).
         String newProfileImageUrl = request.profileImageUrl();
-        user.updateProfile(newNickname, newProfileImageUrl == null || newProfileImageUrl.isBlank()
-                ? null : newProfileImageUrl);
+        String profileImageUrlToSave = newProfileImageUrl == null
+                ? user.getProfileImageUrl()
+                : (newProfileImageUrl.isBlank() ? null : newProfileImageUrl);
+        user.updateProfile(newNickname, profileImageUrlToSave);
         userRepository.save(user);
 
         Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);

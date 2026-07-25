@@ -391,6 +391,38 @@ class UserServiceTest {
         verify(dormitoryRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("profileImageUrl을 생략(null)하면 기존 프로필 사진을 그대로 유지한다")
+    void updateProfile_omitsProfileImageUrl_preservesExistingPhoto() {
+        User user = newUser();
+        user.updateProfileImageKey("profiles/1/existing.jpg");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        ProfileUpdateResponse response = userService.updateProfile(
+                1L, updateRequest("새닉네임", "2기숙사", null));
+
+        assertThat(response.profileImageUrl()).isEqualTo("profiles/1/existing.jpg");
+        assertThat(user.getProfileImageUrl()).isEqualTo("profiles/1/existing.jpg");
+    }
+
+    @Test
+    @DisplayName("profileImageUrl에 빈 문자열을 명시적으로 보내면 프로필 사진을 삭제한다")
+    void updateProfile_explicitEmptyProfileImageUrl_clearsPhoto() {
+        User user = newUser();
+        user.updateProfileImageKey("profiles/1/existing.jpg");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        ProfileUpdateResponse response = userService.updateProfile(
+                1L, updateRequest("새닉네임", "2기숙사", ""));
+
+        assertThat(response.profileImageUrl()).isNull();
+        assertThat(user.getProfileImageUrl()).isNull();
+    }
+
     // ===== presignProfileImageUpload =====
 
     private static final String PROFILE_KEY = "profiles/1/uuid.jpg";
