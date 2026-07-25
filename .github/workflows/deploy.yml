@@ -75,11 +75,21 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CLIENT_ALLOWED_ORIGINS: ${{ secrets.CLIENT_ALLOWED_ORIGINS }}
+          S3_PRIVATE_BUCKET: ${{ vars.S3_PRIVATE_BUCKET }}
+          S3_PUBLIC_BUCKET: ${{ vars.S3_PUBLIC_BUCKET }}
+          S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
           test -n "$JWT_SECRET" || {
             echo "::error::JWT_SECRET is not configured"
             exit 1
           }
+          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION; do
+            test -n "${!name}" || {
+              echo "::error::$name is not configured"
+              exit 1
+            }
+          done
           umask 077
           {
             printf 'SPRING_DATASOURCE_URL=%s\n' "$SPRING_DATASOURCE_URL"
@@ -87,6 +97,10 @@ jobs:
             printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$SPRING_DATASOURCE_PASSWORD"
             printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
             printf 'CLIENT_ALLOWED_ORIGINS=%s\n' "$CLIENT_ALLOWED_ORIGINS"
+            printf 'S3_PRIVATE_BUCKET=%s\n' "$S3_PRIVATE_BUCKET"
+            printf 'S3_PUBLIC_BUCKET=%s\n' "$S3_PUBLIC_BUCKET"
+            printf 'S3_PUBLIC_BASE_URL=%s\n' "$S3_PUBLIC_BASE_URL"
+            printf 'AWS_REGION=%s\n' "$AWS_REGION"
           } > tdd-runtime.env
           scp -i ~/.ssh/tdd-github-actions tdd-runtime.env "$EC2_USER@$EC2_HOST:/tmp/tdd-runtime.env"
           rm -f tdd-runtime.env
