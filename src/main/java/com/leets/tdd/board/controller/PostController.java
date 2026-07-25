@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 
@@ -54,7 +55,8 @@ public class PostController {
             @Valid @RequestBody PostCreateRequest request
     ) {
         Long postId = postService.createPost(userPrincipal.userId(), request);
-        return ResponseEntity.ok(ApiResponse.success("게시글 작성에 성공하였습니다.", postId));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("게시글 작성에 성공하였습니다.", postId));
     }
 
     @Operation(summary = "게시글 상세 조회", description = "게시글 본문과 댓글 수를 조회한다.")
@@ -86,6 +88,7 @@ public class PostController {
             @Valid @RequestBody CommentCreateRequest request
     ) {
         Long commentId = postService.createComment(postId, userPrincipal.userId(), request);
-        return ResponseEntity.ok(ApiResponse.success("댓글 등록에 성공하였습니다.", commentId));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("댓글 등록에 성공하였습니다.", commentId));
     }
 }
