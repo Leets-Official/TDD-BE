@@ -7,7 +7,7 @@ import com.leets.tdd.board.dto.PostDetailResponse;
 import com.leets.tdd.board.dto.PostListResponse;
 import com.leets.tdd.board.service.PostService;
 import com.leets.tdd.global.common.ApiResponse;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
