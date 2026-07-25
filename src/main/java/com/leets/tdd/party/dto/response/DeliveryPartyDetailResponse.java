@@ -1,0 +1,33 @@
+package com.leets.tdd.party.dto.response;
+
+import java.time.LocalDateTime;
+import com.leets.tdd.party.domain.DeliveryParty;
+import lombok.Getter;
+
+@Getter
+public class DeliveryPartyDetailResponse {
+
+    private final Long id;
+    private final Long creatorId;
+    private final Long foodCategoryId;
+    private final String title;
+    private final String description;
+    private final Integer minParticipants;
+    private final Integer maxParticipants;
+    private final LocalDateTime orderExpectedAt;
+    private final String status;
+    private final LocalDateTime createdAt;
+
+    public DeliveryPartyDetailResponse(DeliveryParty deliveryParty) {
+        this.id = deliveryParty.getId();
+        this.creatorId = deliveryParty.getCreatorId();
+        this.foodCategoryId = deliveryParty.getFoodCategoryId();
+        this.title = deliveryParty.getTitle();
+        this.description = deliveryParty.getDescription();
+        this.minParticipants = deliveryParty.getMinParticipants();
+        this.maxParticipants = deliveryParty.getMaxParticipants();
+        this.orderExpectedAt = deliveryParty.getOrderExpectedAt();
+        this.status = deliveryParty.getStatus().name();
+        this.createdAt = deliveryParty.getCreatedAt();
+    }
+}

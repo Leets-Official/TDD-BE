@@ -1,0 +1,24 @@
+spring:
+  flyway:
+    enabled: false
+  datasource:
+    url: jdbc:h2:mem:tdd;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+client:
+  allowed-origins: http://localhost:[*]
+
+# 이 파일은 테스트 실행 시 src/main/resources/application.yaml을 통째로 대체한다.
+# 따라서 main 쪽 s3 설정이 테스트에서는 보이지 않으므로 여기에도 값을 둔다.
+# 실제 S3를 호출하지 않는 더미 값이며, 단위 테스트는 S3Client/S3Presigner를 Mock 처리한다.
+s3:
+  private-bucket: tdd-assets-test
+  public-bucket: tdd-public-test
+  public-base-url: https://tdd-public-test.s3.ap-northeast-2.amazonaws.com
+  region: ap-northeast-2
+  presigned-url-validity-seconds: 300
+  max-file-size-bytes: 10485760
