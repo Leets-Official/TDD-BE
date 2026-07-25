@@ -3,6 +3,8 @@ package com.leets.tdd.global.config;
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.JwtAuthErrorType;
 import com.leets.tdd.global.jwt.UserPrincipal;
+import com.leets.tdd.user.domain.UserStatus;
+import com.leets.tdd.user.repository.UserRepository;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -22,6 +24,9 @@ import java.util.List;
  * 토큰이 없거나(퍼블릭 엔드포인트) 유효하지 않으면 그냥 다음 필터로 넘긴다 - 실제로 인증을
  * 요구할지 말지는 SecurityConfig의 authorizeHttpRequests가 결정한다(이 필터는 "토큰이 있으면
  * 누구인지 알려주는" 역할만 하고, "인증이 꼭 있어야 한다"는 판단은 하지 않는다).
+ * 서명/만료가 유효한 토큰이라도 DB 조회 결과 탈퇴(DELETED)/제한(BANNED) 상태면 인증되지 않은
+ * 것으로 취급한다 - access token은 탈퇴/제한 이후에도 만료 전까지(최대 30분) 서명 자체는
+ * 계속 유효하기 때문에, 매 요청마다 최신 계정 상태를 DB에서 확인해야 한다.
  * principal은 global.jwt.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
  * -> 컨트롤러에서는 @AuthenticationPrincipal UserPrincipal로 받을 수 있다.
  * 주의: 토큰이 없거나 잘못된 경우 여기서 401 응답 바디를 직접 만들지 않는다. Spring Security의
@@ -38,9 +43,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public static final String JWT_ERROR_ATTRIBUTE = "jwtAuthError";
 
     private final JwtProvider jwtProvider;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, UserRepository userRepository) {
         this.jwtProvider = jwtProvider;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -54,9 +61,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 Long userId = jwtProvider.parseUserId(token);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(new UserPrincipal(userId), null, List.of());
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                // 토큰 자체는 서명/만료가 유효해도, 발급 이후 탈퇴(DELETED)했거나 이용이 제한(BANNED)된
+                // 계정일 수 있다(access token은 최대 30분간 서버 상태 없이 유효하기 때문). 매 요청마다
+                // DB의 최신 상태를 확인해서 그런 토큰은 인증되지 않은 것으로 취급한다.
+                UserStatus status = userRepository.findStatusById(userId).orElse(null);
+
+                if (status == UserStatus.DELETED || status == null) {
+                    SecurityContextHolder.clearContext();
+                    request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.INVALID);
+                } else if (status == UserStatus.BANNED) {
+                    SecurityContextHolder.clearContext();
+                    request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.BANNED);
+                } else {
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(new UserPrincipal(userId), null, List.of());
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             } catch (ExpiredJwtException e) {
                 SecurityContextHolder.clearContext();
                 request.setAttribute(JWT_ERROR_ATTRIBUTE, JwtAuthErrorType.EXPIRED);

@@ -2,6 +2,7 @@ package com.leets.tdd.global.health;
 
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.config.SecurityConfig;
+import com.leets.tdd.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -14,10 +15,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // SecurityConfig의 securityFilterChain 빈이 JwtAuthenticationFilter를 내부에서 직접 만들어
-// 체인에 등록하는데, 그 필터가 JwtProvider를 필요로 하므로 슬라이스 테스트에도 목(mock)해준다.
-// JwtAuthenticationFilter 자체는 더 이상 별도 빈이 아니라서(이유는 SecurityConfig 주석 참고)
-// 여기서 따로 @Import할 필요는 없다. 이 테스트는 토큰을 아예 안 보내는 케이스만 확인하므로
-// JwtProvider 동작 자체는 중요하지 않다.
+// 체인에 등록하는데, 그 필터가 JwtProvider와 UserRepository를 필요로 하므로 슬라이스 테스트에도
+// 목(mock)해준다. JwtAuthenticationFilter 자체는 더 이상 별도 빈이 아니라서(이유는 SecurityConfig
+// 주석 참고) 여기서 따로 @Import할 필요는 없다. 이 테스트는 토큰을 아예 안 보내는 케이스만
+// 확인하므로 JwtProvider/UserRepository 동작 자체는 중요하지 않다.
 @WebMvcTest(HealthController.class)
 @Import(SecurityConfig.class)
 class HealthControllerTest {
@@ -27,6 +28,9 @@ class HealthControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
+
+    @MockitoBean
+    private UserRepository userRepository;
 
     @Test
     void 헬스체크는_200과_UP을_반환한다() throws Exception {

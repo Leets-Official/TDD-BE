@@ -171,9 +171,10 @@ public class UserService {
      * suspendedUntil/noShowApprovedCount/mannerTemperature는 softDelete()가 건드리지 않으므로
      * 그대로 유지된다(정지 우회 방지 + 재가입 시 이력 복원).
      * <p>
-     * TODO: "진행 중인 배달팟(정산 미완료) 여부 확인" 단계는 party 도메인이 아직 구현 중이라 뺐다.
-     * party 쪽 API가 준비되면 여기서 막아야 한다(명세 실패 케이스: "진행 중인 배달팟이 있어
-     * 탈퇴할 수 없습니다.").
+     * TODO: "진행 중인 배달팟(정산 미완료) 여부 확인" 단계는 의도적으로 뺐다. party 도메인
+     * 엔티티(DeliveryParty/PartyParticipant) 자체는 이미 있지만, 이 기능을 넣으려면 user 도메인이
+     * party/settlement 도메인에 의존하게 돼서 이 PR(로그인/로그아웃/탈퇴) 범위를 벗어난다.
+     * 별도 이슈로 분리해서 처리한다(명세 실패 케이스: "진행 중인 배달팟이 있어 탈퇴할 수 없습니다.").
      */
     @Transactional
     public void withdraw(Long userId, WithdrawalRequest request) {

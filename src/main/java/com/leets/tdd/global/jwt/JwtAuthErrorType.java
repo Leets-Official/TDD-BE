@@ -7,5 +7,7 @@ package com.leets.tdd.global.jwt;
 public enum JwtAuthErrorType {
     MISSING,
     EXPIRED,
-    INVALID
+    INVALID,
+    // 서명/만료는 정상이지만 DB 조회 결과 이미 탈퇴/정지된 계정인 경우.
+    BANNED
 }

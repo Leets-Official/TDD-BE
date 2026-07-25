@@ -34,6 +34,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             errorCode = UserErrorCode.TOKEN_MISSING;
         } else if (JwtAuthErrorType.EXPIRED.equals(errorType)) {
             errorCode = UserErrorCode.TOKEN_EXPIRED;
+        } else if (JwtAuthErrorType.BANNED.equals(errorType)) {
+            errorCode = UserErrorCode.ACCOUNT_BANNED;
         } else {
             errorCode = UserErrorCode.INVALID_TOKEN;
         }
