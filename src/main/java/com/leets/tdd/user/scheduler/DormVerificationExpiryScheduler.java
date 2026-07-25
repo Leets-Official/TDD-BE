@@ -1,6 +1,6 @@
 package com.leets.tdd.user.scheduler;
 
-import com.leets.tdd.global.s3.ImageStorageService;
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -42,7 +42,7 @@ public class DormVerificationExpiryScheduler {
             String imageKey = dormitory.getDormVerificationImageKey();
             dormitory.expire();
             if (imageKey != null) {
-                imageStorageService.deleteObject(imageKey);
+                imageStorageService.delete(imageKey);
             }
         }
 

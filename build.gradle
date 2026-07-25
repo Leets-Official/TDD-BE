@@ -44,8 +44,10 @@ dependencies {
     // Swagger (API Docs)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
-    // AWS S3 (기숙사 인증/프로필 이미지 업로드 + Presigned URL 발급)
-    implementation platform('software.amazon.awssdk:bom:2.29.52')
+    // AWS S3 (이미지 스토리지)
+    // 자격 증명은 EC2 IAM Role이 제공하므로 Access Key를 설정하지 않는다.
+    // AWS SDK의 기본 자격 증명 체인이 운영에서 IAM Role을 자동으로 선택한다.
+    implementation platform('software.amazon.awssdk:bom:2.31.78')
     implementation 'software.amazon.awssdk:s3'
 
     // Lombok
@@ -68,4 +70,10 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// 실행 가능한 bootJar만 남긴다. plain jar까지 생기면 배포 스크립트가
+// build/libs/*.jar 중 어느 것을 집을지 모호해진다.
+tasks.named('jar') {
+    enabled = false
 }

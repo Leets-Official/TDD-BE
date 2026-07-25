@@ -2,10 +2,9 @@ package com.leets.tdd.user.service;
 
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
-import com.leets.tdd.global.s3.ImageStorageService;
-import com.leets.tdd.global.s3.InvalidImageException;
-import com.leets.tdd.global.s3.ProfileImageStorageService;
-import com.leets.tdd.global.s3.UploadedObjectMeta;
+import com.leets.tdd.global.storage.ImageCategory;
+import com.leets.tdd.global.storage.ImageStorageService;
+import com.leets.tdd.global.storage.dto.PresignedUploadResponse;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
@@ -48,7 +47,6 @@ import java.time.LocalDateTime;
 public class UserService {
 
     private static final int MAX_NICKNAME_GENERATION_ATTEMPTS = 5;
-    private static final String DORM_VERIFICATION_KEY_PREFIX = "dormitory-verifications";
 
     private final UserRepository userRepository;
     private final DormitoryRepository dormitoryRepository;
@@ -58,7 +56,6 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final NicknameGenerator nicknameGenerator;
     private final ImageStorageService imageStorageService;
-    private final ProfileImageStorageService profileImageStorageService;
 
     @Transactional
     public MyPageResponse getMyPage(Long userId) {
@@ -149,15 +146,10 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public ProfileImagePresignResponse presignProfileImageUpload(Long userId, ProfileImagePresignRequest request) {
-        String key;
-        try {
-            key = profileImageStorageService.buildProfileImageKey(userId, request.contentType());
-        } catch (InvalidImageException e) {
-            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
-        }
-        String uploadUrl = profileImageStorageService.generatePresignedPutUrl(key, request.contentType());
+        PresignedUploadResponse presigned =
+                imageStorageService.issueUploadUrl(ImageCategory.PROFILE, userId, request.contentType());
 
-        return new ProfileImagePresignResponse(key, uploadUrl);
+        return new ProfileImagePresignResponse(presigned.key(), presigned.uploadUrl());
     }
 
     /**
@@ -170,26 +162,20 @@ public class UserService {
     public ProfileImageUploadResponse confirmProfileImageUpload(Long userId, ProfileImageConfirmRequest request) {
         String key = request.key();
 
-        if (!profileImageStorageService.belongsTo(userId, key)) {
+        if (!belongsToUser(ImageCategory.PROFILE, userId, key)) {
             throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
 
-        UploadedObjectMeta meta = profileImageStorageService.headObject(key)
-                .orElseThrow(() -> new UserException(UserErrorCode.PROFILE_IMAGE_UPLOAD_NOT_FOUND));
-
-        if (!profileImageStorageService.isSizeWithinLimit(meta.contentLength())
-                || !profileImageStorageService.isAllowedContentType(meta.contentType())) {
-            profileImageStorageService.deleteObject(key);
-            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
-        }
+        // 용량/형식 기준을 벗어나면 confirmUpload가 ImageException을 던지면서 객체도 함께 지운다.
+        imageStorageService.confirmUpload(key);
 
         user.updateProfileImageKey(key);
         userRepository.save(user);
 
-        return new ProfileImageUploadResponse(profileImageStorageService.buildPublicUrl(key));
+        return new ProfileImageUploadResponse(imageStorageService.resolveViewUrl(key));
     }
 
     /**
@@ -206,15 +192,10 @@ public class UserService {
             throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
         }
 
-        String key;
-        try {
-            key = imageStorageService.buildDormVerificationKey(userId, request.contentType());
-        } catch (InvalidImageException e) {
-            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
-        }
-        String uploadUrl = imageStorageService.generatePresignedPutUrl(key, request.contentType());
+        PresignedUploadResponse presigned = imageStorageService.issueUploadUrl(
+                ImageCategory.DORMITORY_VERIFICATION, userId, request.contentType());
 
-        return new DormVerificationPresignResponse(key, uploadUrl);
+        return new DormVerificationPresignResponse(presigned.key(), presigned.uploadUrl());
     }
 
     /**
@@ -230,24 +211,18 @@ public class UserService {
     ) {
         String key = request.key();
 
-        if (!imageStorageService.belongsTo(DORM_VERIFICATION_KEY_PREFIX, userId, key)) {
+        if (!belongsToUser(ImageCategory.DORMITORY_VERIFICATION, userId, key)) {
             throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
         }
 
         Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
         if (dormitory != null && dormitory.isVerificationInProgress()) {
-            imageStorageService.deleteObject(key);
+            imageStorageService.delete(key);
             throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
         }
 
-        UploadedObjectMeta meta = imageStorageService.headObject(key)
-                .orElseThrow(() -> new UserException(UserErrorCode.DORM_VERIFICATION_UPLOAD_NOT_FOUND));
-
-        if (!imageStorageService.isSizeWithinLimit(meta.contentLength())
-                || !imageStorageService.isAllowedContentType(meta.contentType())) {
-            imageStorageService.deleteObject(key);
-            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
-        }
+        // 용량/형식 기준을 벗어나면 confirmUpload가 ImageException을 던지면서 객체도 함께 지운다.
+        imageStorageService.confirmUpload(key);
 
         if (dormitory == null) {
             dormitory = new Dormitory(userId, null, key);
@@ -260,7 +235,7 @@ public class UserService {
                 dormitory.getDormStatus().name(),
                 dormitory.getDormVerifiedAt(),
                 dormitory.getDormVerifiedUntil(),
-                imageStorageService.generatePresignedGetUrl(key)
+                imageStorageService.resolveViewUrl(key)
         );
     }
 
@@ -384,6 +359,24 @@ public class UserService {
                 existing -> existing.resubmit(dormitory, null),
                 () -> dormitoryRepository.save(new Dormitory(userId, dormitory, null))
         );
+    }
+
+    /**
+     * key가 category/userId/ 아래에 있는(=본인 몫의) 단일 세그먼트 key인지 검증한다. 공용
+     * ImageStorageService.confirmUpload(key)는 소유권을 검증하지 않으므로(용량/형식만 검증),
+     * presign 단계에서 클라이언트가 보낸 key를 confirm 단계에서 그대로 신뢰하지 않기 위해
+     * 여기서 별도로 확인한다 - key에 적힌 id 자체를 권한 근거로 삼지 않기 위함이다.
+     */
+    private boolean belongsToUser(ImageCategory category, Long userId, String key) {
+        if (key == null) {
+            return false;
+        }
+        String expectedPrefix = "%s/%d/".formatted(category.getPrefix(), userId);
+        if (!key.startsWith(expectedPrefix)) {
+            return false;
+        }
+        String remainder = key.substring(expectedPrefix.length());
+        return !remainder.isEmpty() && !remainder.contains("/") && !remainder.contains("..");
     }
 
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {

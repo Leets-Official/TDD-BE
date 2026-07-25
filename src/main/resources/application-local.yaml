@@ -15,15 +15,13 @@ jwt:
 client:
   allowed-origins: http://localhost:[*]
 
-# 같은 이유(위 jwt 설정 주석 참고)로 aws.s3도 여기 자체 완결시켜 둔다 - S3Config/ImageStorageService/
-# ProfileImageStorageService가 @ActiveProfiles("local") 컨텍스트 로딩 테스트에서 빈으로 만들어지려면
-# 이 값들이 필요하다. public-bucket/public-base-url은 운영 값을 몰라도 로컬 기동/테스트만 통과하면
-# 되므로 임시 placeholder를 기본값으로 둔다(실제 업로드 확인은 로컬에서 안 하고, 그때는
-# S3_PUBLIC_BUCKET/S3_PUBLIC_BASE_URL 환경변수를 직접 넣어 override한다).
-aws:
-  s3:
-    private-bucket: ${S3_PRIVATE_BUCKET:tdd-assets-930525999361-ap-northeast-2-an}
-    public-bucket: ${S3_PUBLIC_BUCKET:tdd-assets-public-placeholder}
-    public-base-url: ${S3_PUBLIC_BASE_URL:https://tdd-assets-public-placeholder.s3.ap-northeast-2.amazonaws.com}
-    region: ${AWS_REGION:ap-northeast-2}
-    presigned-get-expiration-seconds: 600
+# 로컬 기동용 임시 버킷 값. 실제 업로드를 시도하면 자격 증명이 없어 실패하지만,
+# 컨텍스트 로딩과 단위 테스트에는 지장이 없다. 실제 S3 연동 테스트가 필요하면
+# IAM Identity Center 권한 세트와 AWS SSO 프로필을 인프라 담당에게 요청한다.
+s3:
+  private-bucket: ${S3_PRIVATE_BUCKET:tdd-assets-local}
+  public-bucket: ${S3_PUBLIC_BUCKET:tdd-public-local}
+  public-base-url: ${S3_PUBLIC_BASE_URL:https://tdd-public-local.s3.ap-northeast-2.amazonaws.com}
+  region: ${AWS_REGION:ap-northeast-2}
+  presigned-url-validity-seconds: 300
+  max-file-size-bytes: 10485760

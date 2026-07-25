@@ -27,7 +27,17 @@ jobs:
           cache: gradle
 
       - run: chmod +x gradlew
-      - run: ./gradlew test --no-daemon
+      - run: ./gradlew test bootJar --no-daemon
+
+      # 테스트를 통과한 그 산출물을 그대로 배포한다. EC2에서 다시 빌드하지 않는다.
+      - name: Upload application jar
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdd-api-jar
+          path: build/libs/*.jar
+          retention-days: 1
+          if-no-files-found: error
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -39,6 +49,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download application jar
+        uses: actions/download-artifact@v4
+        with:
+          name: tdd-api-jar
+          path: ${{ runner.temp }}/artifact
 
       - name: Configure SSH
         env:
@@ -52,19 +68,22 @@ jobs:
           printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Transfer source
+      - name: Transfer release artifact
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
         run: |
-          tar \
-            --exclude-vcs \
-            --exclude=.gradle \
-            --exclude=build \
-            --exclude=.env \
-            --exclude=.env.* \
-            -czf tdd-release.tar.gz .
-          scp -i ~/.ssh/tdd-github-actions tdd-release.tar.gz "$EC2_USER@$EC2_HOST:/tmp/tdd-release.tar.gz"
+          # EC2로는 실행 JAR과 Dockerfile만 보낸다. 소스 전체를 보내고 EC2에서 빌드하면
+          # t3.micro의 1GB 메모리로 Gradle 빌드를 감당하지 못한다.
+          RELEASE_DIR="$RUNNER_TEMP/release"
+          mkdir -p "$RELEASE_DIR"
+          cp "$RUNNER_TEMP"/artifact/*.jar "$RELEASE_DIR/app.jar"
+          cp Dockerfile "$RELEASE_DIR/Dockerfile"
+
+          ARCHIVE="$RUNNER_TEMP/tdd-release.tar.gz"
+          tar -czf "$ARCHIVE" -C "$RELEASE_DIR" .
+          scp -i ~/.ssh/tdd-github-actions "$ARCHIVE" "$EC2_USER@$EC2_HOST:/tmp/tdd-release.tar.gz"
+          rm -f "$ARCHIVE"
 
       - name: Transfer runtime configuration
         env:
@@ -75,11 +94,21 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CLIENT_ALLOWED_ORIGINS: ${{ secrets.CLIENT_ALLOWED_ORIGINS }}
+          S3_PRIVATE_BUCKET: ${{ vars.S3_PRIVATE_BUCKET }}
+          S3_PUBLIC_BUCKET: ${{ vars.S3_PUBLIC_BUCKET }}
+          S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
         run: |
           test -n "$JWT_SECRET" || {
             echo "::error::JWT_SECRET is not configured"
             exit 1
           }
+          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION; do
+            test -n "${!name}" || {
+              echo "::error::$name is not configured"
+              exit 1
+            }
+          done
           umask 077
           {
             printf 'SPRING_DATASOURCE_URL=%s\n' "$SPRING_DATASOURCE_URL"
@@ -87,6 +116,10 @@ jobs:
             printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$SPRING_DATASOURCE_PASSWORD"
             printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
             printf 'CLIENT_ALLOWED_ORIGINS=%s\n' "$CLIENT_ALLOWED_ORIGINS"
+            printf 'S3_PRIVATE_BUCKET=%s\n' "$S3_PRIVATE_BUCKET"
+            printf 'S3_PUBLIC_BUCKET=%s\n' "$S3_PUBLIC_BUCKET"
+            printf 'S3_PUBLIC_BASE_URL=%s\n' "$S3_PUBLIC_BASE_URL"
+            printf 'AWS_REGION=%s\n' "$AWS_REGION"
           } > tdd-runtime.env
           scp -i ~/.ssh/tdd-github-actions tdd-runtime.env "$EC2_USER@$EC2_HOST:/tmp/tdd-runtime.env"
           rm -f tdd-runtime.env

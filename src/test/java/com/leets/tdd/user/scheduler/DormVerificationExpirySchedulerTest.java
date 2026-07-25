@@ -1,6 +1,6 @@
 package com.leets.tdd.user.scheduler;
 
-import com.leets.tdd.global.s3.ImageStorageService;
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -41,7 +41,7 @@ class DormVerificationExpirySchedulerTest {
 
         scheduler.expireOverdueVerifications();
 
-        verify(imageStorageService, never()).deleteObject(any());
+        verify(imageStorageService, never()).delete(any());
     }
 
     @Test
@@ -56,7 +56,7 @@ class DormVerificationExpirySchedulerTest {
         scheduler.expireOverdueVerifications();
 
         assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        verify(imageStorageService).deleteObject("dormitory-verifications/1/uuid.jpg");
+        verify(imageStorageService).delete("dormitory-verifications/1/uuid.jpg");
     }
 
     @Test
@@ -74,8 +74,8 @@ class DormVerificationExpirySchedulerTest {
 
         assertThat(first.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
         assertThat(second.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        verify(imageStorageService).deleteObject("dormitory-verifications/1/a.jpg");
-        verify(imageStorageService).deleteObject("dormitory-verifications/2/b.jpg");
+        verify(imageStorageService).delete("dormitory-verifications/1/a.jpg");
+        verify(imageStorageService).delete("dormitory-verifications/2/b.jpg");
     }
 
     @Test
@@ -90,6 +90,6 @@ class DormVerificationExpirySchedulerTest {
         scheduler.expireOverdueVerifications();
 
         assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.EXPIRED);
-        verify(imageStorageService, never()).deleteObject(any());
+        verify(imageStorageService, never()).delete(any());
     }
 }
