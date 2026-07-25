@@ -8,7 +8,7 @@ import com.leets.tdd.auth.dto.ResetPasswordRequest;
 import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.service.AuthService;
 import com.leets.tdd.auth.service.EmailVerificationService;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

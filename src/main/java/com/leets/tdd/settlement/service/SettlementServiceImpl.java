@@ -10,7 +10,9 @@ import com.leets.tdd.settlement.domain.BankAccount;
 import com.leets.tdd.settlement.domain.PaymentStatus;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.settlement.dto.request.CreateSettlementRequest;
+import com.leets.tdd.settlement.dto.request.RegisterBankAccountRequest;
 import com.leets.tdd.settlement.dto.request.SettlementPaymentRequest;
+import com.leets.tdd.settlement.dto.response.BankAccountResponse;
 import com.leets.tdd.settlement.dto.response.MyIncomingSettlementResponse;
 import com.leets.tdd.settlement.dto.response.MyOutgoingSettlementResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
@@ -48,6 +50,29 @@ public class SettlementServiceImpl implements SettlementService {
   private final PartyParticipantRepository partyParticipantRepository;
   private final BankAccountRepository bankAccountRepository;
   private final UserRepository userRepository;
+
+  @Override
+  @Transactional
+  public BankAccountResponse registerBankAccount(Long currentUserId, RegisterBankAccountRequest request) {
+    if (bankAccountRepository.findByUserId(currentUserId).isPresent()) {
+      throw new SettlementException(SettlementErrorCode.BANK_ACCOUNT_ALREADY_REGISTERED);
+    }
+    BankAccount bankAccount = new BankAccount(
+        currentUserId, request.bankName(), request.accountNumber(), request.accountHolder());
+    bankAccountRepository.save(bankAccount);
+    log.info("bank_account.registered userId={}", currentUserId);
+    return toBankAccountResponse(bankAccount);
+  }
+
+  @Override
+  @Transactional
+  public BankAccountResponse updateBankAccount(Long currentUserId, RegisterBankAccountRequest request) {
+    BankAccount bankAccount = bankAccountRepository.findByUserId(currentUserId)
+        .orElseThrow(() -> new SettlementException(SettlementErrorCode.BANK_ACCOUNT_NOT_FOUND));
+    bankAccount.update(request.bankName(), request.accountNumber(), request.accountHolder());
+    log.info("bank_account.updated userId={}", currentUserId);
+    return toBankAccountResponse(bankAccount);
+  }
 
   @Override
   @Transactional
@@ -278,6 +303,24 @@ public class SettlementServiceImpl implements SettlementService {
     if (paymentSum > request.totalAmount()) {
       throw new SettlementException(SettlementErrorCode.PAYMENT_SUM_EXCEEDED);
     }
+  }
+
+  private BankAccountResponse toBankAccountResponse(BankAccount bankAccount) {
+    return new BankAccountResponse(
+        bankAccount.getBankName(),
+        maskAccountNumber(bankAccount.getAccountNumber()),
+        bankAccount.getAccountHolder()
+    );
+  }
+
+  // 앞 6자리만 남기고 나머지는 마스킹한다(6자리 이하면 마스킹하지 않고 그대로 보여준다 - 어차피
+  // 계좌번호 검증에서 최소 6자리를 요구하므로, 전부 가리면 사용자가 등록 결과를 확인할 수 없다).
+  private String maskAccountNumber(String accountNumber) {
+    int visibleLength = 6;
+    if (accountNumber.length() <= visibleLength) {
+      return accountNumber;
+    }
+    return accountNumber.substring(0, visibleLength) + "*".repeat(accountNumber.length() - visibleLength);
   }
 
   private SettlementDetailResponse toSettlementDetailResponse(

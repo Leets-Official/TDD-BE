@@ -1,4 +1,4 @@
-package com.leets.tdd.global.auth;
+package com.leets.tdd.global.jwt;
 
 import java.security.Principal;
 

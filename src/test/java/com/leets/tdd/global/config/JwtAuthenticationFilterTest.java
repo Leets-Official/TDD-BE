@@ -1,8 +1,8 @@
 package com.leets.tdd.global.config;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.global.auth.JwtAuthErrorType;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtAuthErrorType;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.user.domain.UserStatus;
 import com.leets.tdd.user.repository.UserRepository;
 import io.jsonwebtoken.JwtException;

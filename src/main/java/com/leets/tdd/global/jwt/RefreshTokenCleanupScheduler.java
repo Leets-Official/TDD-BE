@@ -1,4 +1,4 @@
-package com.leets.tdd.auth.scheduler;
+package com.leets.tdd.global.jwt;
 
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;

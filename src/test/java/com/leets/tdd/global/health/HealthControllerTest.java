@@ -1,6 +1,6 @@
 package com.leets.tdd.global.health;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.config.SecurityConfig;
 import com.leets.tdd.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;

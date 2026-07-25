@@ -18,7 +18,9 @@ import com.leets.tdd.settlement.domain.BankAccount;
 import com.leets.tdd.settlement.domain.PaymentStatus;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.settlement.dto.request.CreateSettlementRequest;
+import com.leets.tdd.settlement.dto.request.RegisterBankAccountRequest;
 import com.leets.tdd.settlement.dto.request.SettlementPaymentRequest;
+import com.leets.tdd.settlement.dto.response.BankAccountResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
 import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
 import com.leets.tdd.settlement.exception.SettlementErrorCode;
@@ -53,6 +55,60 @@ class SettlementServiceImplTest {
 
   @InjectMocks
   private SettlementServiceImpl settlementService;
+
+  @Test
+  void 계좌를_등록한다() {
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.empty());
+
+    BankAccountResponse response = settlementService.registerBankAccount(
+        1L, new RegisterBankAccountRequest("국민은행", "123456123456", "가나다")
+    );
+
+    assertThat(response.bankName()).isEqualTo("국민은행");
+    assertThat(response.accountNumber()).isEqualTo("123456******");
+    assertThat(response.accountHolder()).isEqualTo("가나다");
+    verify(bankAccountRepository).save(any(BankAccount.class));
+  }
+
+  @Test
+  void 이미_등록된_계좌가_있으면_예외가_발생한다() {
+    given(bankAccountRepository.findByUserId(1L))
+        .willReturn(Optional.of(org.mockito.Mockito.mock(BankAccount.class)));
+
+    assertThatThrownBy(() -> settlementService.registerBankAccount(
+        1L, new RegisterBankAccountRequest("국민은행", "123456123456", "가나다")
+    ))
+        .isInstanceOf(SettlementException.class)
+        .hasMessage(SettlementErrorCode.BANK_ACCOUNT_ALREADY_REGISTERED.getMessage());
+
+    verify(bankAccountRepository, never()).save(any());
+  }
+
+  @Test
+  void 계좌를_수정한다() {
+    BankAccount account = new BankAccount(1L, "국민은행", "123456123456", "가나다");
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(account));
+
+    BankAccountResponse response = settlementService.updateBankAccount(
+        1L, new RegisterBankAccountRequest("신한은행", "1234512345", "홍길동")
+    );
+
+    assertThat(response.bankName()).isEqualTo("신한은행");
+    assertThat(response.accountNumber()).isEqualTo("123451****");
+    assertThat(response.accountHolder()).isEqualTo("홍길동");
+    assertThat(account.getBankName()).isEqualTo("신한은행");
+  }
+
+  @Test
+  void 등록된_계좌가_없으면_수정_시_예외가_발생한다() {
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.empty());
+
+    assertThatThrownBy(() -> settlementService.updateBankAccount(
+        1L, new RegisterBankAccountRequest("신한은행", "1234512345", "홍길동")
+    ))
+        .isInstanceOf(SettlementException.class)
+        .hasMessage(SettlementErrorCode.BANK_ACCOUNT_NOT_FOUND.getMessage());
+  }
 
   @Test
   void 방장이_완료된_팟에_정산을_요청한다() {

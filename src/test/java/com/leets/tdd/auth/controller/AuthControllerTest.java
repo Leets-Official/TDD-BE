@@ -1,7 +1,7 @@
 package com.leets.tdd.auth.controller;
 
 import com.leets.tdd.auth.dto.LoginResponse;
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.auth.service.AuthService;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.global.config.SecurityConfig;

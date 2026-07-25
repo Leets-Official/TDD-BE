@@ -1,6 +1,5 @@
-package com.leets.tdd.auth.jwt;
+package com.leets.tdd.global.jwt;
 
-import com.leets.tdd.global.jwt.JwtProvider;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.SignatureException;

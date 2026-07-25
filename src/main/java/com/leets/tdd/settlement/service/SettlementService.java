@@ -1,6 +1,8 @@
 package com.leets.tdd.settlement.service;
 
 import com.leets.tdd.settlement.dto.request.CreateSettlementRequest;
+import com.leets.tdd.settlement.dto.request.RegisterBankAccountRequest;
+import com.leets.tdd.settlement.dto.response.BankAccountResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
 import com.leets.tdd.settlement.dto.response.PaymentStatusResponse;
 import com.leets.tdd.settlement.dto.response.SettlementCancelResponse;
@@ -8,6 +10,10 @@ import com.leets.tdd.settlement.dto.response.SettlementCompletionResponse;
 import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
 
 public interface SettlementService {
+
+  BankAccountResponse registerBankAccount(Long currentUserId, RegisterBankAccountRequest request);
+
+  BankAccountResponse updateBankAccount(Long currentUserId, RegisterBankAccountRequest request);
 
   SettlementDetailResponse createSettlement(Long currentUserId, Long partyId, CreateSettlementRequest request);
 

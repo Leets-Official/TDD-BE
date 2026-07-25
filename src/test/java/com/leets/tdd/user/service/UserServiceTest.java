@@ -1,7 +1,7 @@
 package com.leets.tdd.user.service;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
@@ -10,6 +10,11 @@ import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.WithdrawalRequest;
+import com.leets.tdd.user.dto.ChangePasswordRequest;
+import com.leets.tdd.user.dto.ProfileUpdateRequest;
+import com.leets.tdd.user.dto.ProfileUpdateResponse;
+import com.leets.tdd.user.dto.PushSettingRequest;
+import com.leets.tdd.user.dto.PushSettingResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -289,6 +294,165 @@ class UserServiceTest {
         assertThat(response.accessToken()).isEqualTo("access-token");
         assertThat(deleted.getStatus().name()).isEqualTo("ACTIVE");
         verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    private ProfileUpdateRequest updateRequest(String nickname, String dormitory, String profileImageUrl) {
+        return new ProfileUpdateRequest(nickname, dormitory, profileImageUrl);
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 프로필 수정 시 예외가 발생한다")
+    void updateProfile_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateProfile(1L, updateRequest("가나디", "1기숙사", null)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("변경하려는 닉네임이 다른 사람이 쓰는 중이면 예외가 발생한다")
+    void updateProfile_nicknameDuplicate() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByNickname("다른닉네임")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateProfile(1L, updateRequest("다른닉네임", "1기숙사", null)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.NICKNAME_DUPLICATE.getMessage());
+    }
+
+    @Test
+    @DisplayName("닉네임을 기존과 동일하게 보내면 중복 검사를 하지 않는다")
+    void updateProfile_sameNicknameSkipsDuplicateCheck() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        userService.updateProfile(1L, updateRequest("가나디", "1기숙사", null));
+
+        verify(userRepository, never()).existsByNickname(anyString());
+    }
+
+    @Test
+    @DisplayName("기숙사 정보가 없던 사용자면 새로 생성한다")
+    void updateProfile_createsDormitoryWhenAbsent() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+
+        ProfileUpdateResponse response = userService.updateProfile(
+                1L, updateRequest("새닉네임", "2기숙사", "https://img.example.com/a.png"));
+
+        assertThat(response.nickname()).isEqualTo("새닉네임");
+        assertThat(response.dormitory()).isEqualTo("2기숙사");
+        assertThat(response.profileImageUrl()).isEqualTo("https://img.example.com/a.png");
+        verify(dormitoryRepository).save(any(Dormitory.class));
+    }
+
+    @Test
+    @DisplayName("기존 기숙사 정보가 있으면 인증 상태는 유지한 채 동만 바꾼다")
+    void updateProfile_updatesExistingDormitoryWithoutTouchingVerification() {
+        User user = newUser();
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "s3-key");
+        dormitory.approve(LocalDateTime.now().plusMonths(4));
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByNickname("가나디2")).thenReturn(false);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+
+        ProfileUpdateResponse response = userService.updateProfile(
+                1L, updateRequest("가나디2", "3기숙사", null));
+
+        assertThat(response.dormitory()).isEqualTo("3기숙사");
+        assertThat(dormitory.getDormStatus()).isEqualTo(DormStatus.APPROVED);
+        assertThat(dormitory.getDormVerifiedUntil()).isNotNull();
+        verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 알림 설정 변경 시 예외가 발생한다")
+    void updatePushSetting_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updatePushSetting(1L, new PushSettingRequest(false)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("알림 설정을 끄면 pushEnabled가 false로 바뀐다")
+    void updatePushSetting_disables() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(false));
+
+        assertThat(response.pushEnabled()).isFalse();
+        assertThat(user.isPushEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("알림 설정을 켜면 pushEnabled가 true로 바뀐다")
+    void updatePushSetting_enables() {
+        User user = newUser();
+        user.updatePushEnabled(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(true));
+
+        assertThat(response.pushEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 비밀번호 수정 시 예외가 발생한다")
+    void changePassword_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("현재비번", "새비번1234")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 일치하지 않으면 예외가 발생한다")
+    void changePassword_currentPasswordMismatch() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("틀린비번", user.getPassword())).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("틀린비번", "새비번1234")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.CURRENT_PASSWORD_MISMATCH.getMessage());
+    }
+
+    @Test
+    @DisplayName("새 비밀번호가 기존과 같으면 예외가 발생한다")
+    void changePassword_sameAsCurrent() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("현재비번", user.getPassword())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.changePassword(1L, new ChangePasswordRequest("현재비번", "현재비번")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.NEW_PASSWORD_SAME_AS_CURRENT.getMessage());
+    }
+
+    @Test
+    @DisplayName("검증을 통과하면 비밀번호를 바꾸고 refresh token을 무효화한다")
+    void changePassword_success() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("현재비번", user.getPassword())).thenReturn(true);
+        when(passwordEncoder.matches("새비번1234", user.getPassword())).thenReturn(false);
+        when(passwordEncoder.encode("새비번1234")).thenReturn("encoded-new-pw");
+
+        userService.changePassword(1L, new ChangePasswordRequest("현재비번", "새비번1234"));
+
+        assertThat(user.getPassword()).isEqualTo("encoded-new-pw");
+        assertThat(user.getRefreshTokenHash()).isEmpty();
+        verify(userRepository).save(user);
     }
 
     // ===== withdraw =====

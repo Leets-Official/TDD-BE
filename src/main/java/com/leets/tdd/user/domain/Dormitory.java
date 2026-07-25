@@ -105,4 +105,10 @@ public class Dormitory {
         this.dormVerifiedUntil = null;
         this.rejectReason = null;
     }
+
+    // 마이페이지 > 프로필 수정에서 기숙사 동만 바꿀 때 사용. resubmit()과 달리 인증 사진/상태/
+    // 인증 시각은 건드리지 않는다(단순 프로필 편집이지 재인증 신청이 아니기 때문).
+    public void changeDormitory(String dormitory) {
+        this.dormitory = dormitory;
+    }
 }

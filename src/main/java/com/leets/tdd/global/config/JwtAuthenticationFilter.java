@@ -1,8 +1,8 @@
 package com.leets.tdd.global.config;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.global.auth.JwtAuthErrorType;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtAuthErrorType;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.user.domain.UserStatus;
 import com.leets.tdd.user.repository.UserRepository;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -27,7 +27,7 @@ import java.util.List;
  * 서명/만료가 유효한 토큰이라도 DB 조회 결과 탈퇴(DELETED)/제한(BANNED) 상태면 인증되지 않은
  * 것으로 취급한다 - access token은 탈퇴/제한 이후에도 만료 전까지(최대 30분) 서명 자체는
  * 계속 유효하기 때문에, 매 요청마다 최신 계정 상태를 DB에서 확인해야 한다.
- * principal은 global.auth.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
+ * principal은 global.jwt.UserPrincipal(팀 컨벤션 - JWT subject로 만든 사용자 식별자)을 사용한다.
  * -> 컨트롤러에서는 @AuthenticationPrincipal UserPrincipal로 받을 수 있다.
  * 주의: 토큰이 없거나 잘못된 경우 여기서 401 응답 바디를 직접 만들지 않는다. Spring Security의
  * 필터 체인은 DispatcherServlet 이전 단계라 @RestControllerAdvice가 잡아주지 못하기 때문에,

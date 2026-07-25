@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -39,4 +40,26 @@ public class BankAccount {
 
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
+
+  public BankAccount(Long userId, String bankName, String accountNumber, String accountHolder) {
+    this.userId = userId;
+    this.bankName = bankName;
+    this.accountNumber = accountNumber;
+    this.accountHolder = accountHolder;
+    LocalDateTime now = LocalDateTime.now();
+    this.createdAt = now;
+    this.updatedAt = now;
+  }
+
+  @PreUpdate
+  private void onUpdate() {
+    this.updatedAt = LocalDateTime.now();
+  }
+
+  // 마이페이지 > 계좌 수정에서 사용. userId는 등록 시 이미 확정된 값이라 여기서 바꾸지 않는다.
+  public void update(String bankName, String accountNumber, String accountHolder) {
+    this.bankName = bankName;
+    this.accountNumber = accountNumber;
+    this.accountHolder = accountHolder;
+  }
 }

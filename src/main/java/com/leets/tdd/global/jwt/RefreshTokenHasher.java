@@ -1,4 +1,4 @@
-package com.leets.tdd.auth.jwt;
+package com.leets.tdd.global.jwt;
 
 import org.springframework.stereotype.Component;
 

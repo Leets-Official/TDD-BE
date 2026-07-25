@@ -16,6 +16,7 @@ public enum SettlementErrorCode implements ErrorCode {
   SETTLEMENT_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "이미 완료된 정산입니다."),
   SETTLEMENT_NOT_REQUESTED(HttpStatus.BAD_REQUEST, "진행 중인 정산 요청이 없습니다."),
   BANK_ACCOUNT_NOT_FOUND(HttpStatus.BAD_REQUEST, "정산 계좌를 등록해주세요."),
+  BANK_ACCOUNT_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 등록된 계좌가 있습니다."),
   INVALID_PAYMENT_TARGET(HttpStatus.BAD_REQUEST, "정산 대상에 참여자가 아닌 회원이 있습니다."),
   HOST_CANNOT_BE_PAYMENT_TARGET(HttpStatus.BAD_REQUEST, "방장 본인은 정산 대상에서 제외됩니다."),
   DUPLICATE_PAYMENT_TARGET(HttpStatus.BAD_REQUEST, "정산 대상이 중복되었습니다."),

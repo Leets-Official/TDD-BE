@@ -217,6 +217,20 @@ public class User {
         this.mannerTemperature = this.mannerTemperature.add(delta);
     }
 
+    // 마이페이지 > 알림 설정에서 전체 알림 on/off 토글에 사용. MVP는 카테고리 구분 없이
+    // 이 값 하나로만 결정하고(발송 방식 자체가 클라이언트 필터링이라 서버는 이 플래그만 갱신),
+    // 카테고리별 세분화는 이후 확장 대상이다.
+    public void updatePushEnabled(boolean pushEnabled) {
+        this.pushEnabled = pushEnabled;
+    }
+
+    // 마이페이지 > 프로필 수정에서 닉네임/프로필 사진을 갱신한다. 중복 검사는 서비스 계층에서
+    // 이미 끝낸 값이 들어온다고 가정한다.
+    public void updateProfile(String nickname, String profileImageUrl) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+    }
+
     // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).
     // lastFailedLoginAt 하나로 "실패 3회 미만일 때의 5분 리셋 판단"과
     // "실패 3회 이상일 때의 15분 차단 판단"을 둘 다 계산한다(별도 만료시각 컬럼 없이).

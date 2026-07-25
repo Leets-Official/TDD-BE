@@ -1,4 +1,4 @@
-package com.leets.tdd.global.auth;
+package com.leets.tdd.global.jwt;
 
 /**
  * JwtAuthenticationFilter가 토큰 검증에 실패한 이유를 request attribute로 넘길 때 쓰는 타입.
