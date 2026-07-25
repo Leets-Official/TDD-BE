@@ -3,6 +3,7 @@ package com.leets.tdd.party.service;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
@@ -89,6 +90,8 @@ public class DeliveryPartyService {
                 ))
                 .collect(Collectors.toList());
     }
+
+
     // 배달팟 상세 조회 API
     public DeliveryPartyDetailResponse getDeliveryPartyDetail(Long partyId) {
 
@@ -96,5 +99,22 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
         return new DeliveryPartyDetailResponse(deliveryParty);
+    }
+
+
+    // 배달팟 수정 API
+    public void updateDeliveryParty(Long partyId, UpdateDeliveryPartyRequest request) {
+
+        DeliveryParty deliveryParty = deliveryPartyRepository.findById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        deliveryParty.update(
+                request.getTitle(),
+                request.getDescription(),
+                request.getMaxParticipants(),
+                request.getOrderExpectedAt()
+        );
+
+        deliveryPartyRepository.save(deliveryParty);
     }
 }
