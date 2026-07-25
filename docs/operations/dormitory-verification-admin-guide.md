@@ -5,6 +5,12 @@ API를 만들지 않고, DB 접근 권한이 있는 관리자가 `dormitory` 테
 처리한다(별도 관리자 인증/권한 체계가 아직 없어서다). 이 문서는 그 수동 작업을 실수 없이
 하기 위한 SQL 템플릿과 절차를 정리한다.
 
+> **주의**: 아래 `:userId`, `:dormVerifiedUntil` 등은 MyBatis/JDBC 같은 바인딩 도구의
+> named parameter가 아니다 - MySQL Workbench/DBeaver 같은 일반 SQL 클라이언트에 사람이
+> 직접 값을 채워 넣는 자리표시자다. 숫자(`:userId`)는 따옴표 없이, 문자열/날짜(`:dormVerifiedUntil`)는
+> 값 자체를 작은따옴표로 감싸서 치환한다(플레이스홀더를 감싸고 있는 따옴표는 그대로 두고
+> 안의 텍스트만 바꾸는 것과 동일). 예시는 각 섹션 하단 참고.
+
 ## 사전 확인
 
 1. 승인/반려 대상 유저의 `dormitory` row가 `dorm_status='PENDING'`인지 먼저 확인한다.
@@ -37,13 +43,33 @@ API를 만들지 않고, DB 접근 권한이 있는 관리자가 `dormitory` 테
    `WHERE`에 `dorm_status = 'PENDING'`을 같이 걸어서, 이미 처리된 건을 실수로 다시 승인하는 걸 막는다.
    영향받은 row 수가 0이면 이미 PENDING이 아니라는 뜻이니 1번부터 다시 확인한다.
 
+   실제 값을 채운 예시(userId=42, 1번 응답의 dorm_verified_until="2026-08-31T23:59:59"):
+   ```sql
+   UPDATE dormitory
+   SET dorm_status = 'APPROVED',
+       dorm_verified_at = NOW(),
+       dorm_verified_until = '2026-08-31 23:59:59',
+       reject_reason = NULL
+   WHERE user_id = 42
+     AND dorm_status = 'PENDING';
+   ```
+
 ## 반려 처리
 
 ```sql
 UPDATE dormitory
 SET dorm_status = 'REJECTED',
-    reject_reason = '사진이 흐릿해서 동/호수를 확인할 수 없습니다'  -- 실제 사유로 교체
+    reject_reason = ':rejectReason'  -- 실제 사유 문자열로 교체(따옴표는 유지)
 WHERE user_id = :userId
+  AND dorm_status = 'PENDING';
+```
+
+실제 값을 채운 예시(userId=42):
+```sql
+UPDATE dormitory
+SET dorm_status = 'REJECTED',
+    reject_reason = '사진이 흐릿해서 동/호수를 확인할 수 없습니다'
+WHERE user_id = 42
   AND dorm_status = 'PENDING';
 ```
 
