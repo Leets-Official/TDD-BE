@@ -36,6 +36,18 @@ jwt:
 client:
   allowed-origins: ${CLIENT_ALLOWED_ORIGINS}
 
+# 이미지 스토리지. 버킷 이름·리전·공개 URL은 비밀값이 아니므로 GitHub Repository Variables로
+# 관리하며 배포 시 .env로 전달된다. jwt.secret과 같은 이유로 기본값(fallback)을 두지 않는다 -
+# 값이 없으면 기동 자체가 실패해야 잘못된 버킷에 업로드되는 사고를 막을 수 있다.
+# 로컬/테스트용 임시 값은 application-local.yaml, src/test/resources/application.yaml에 둔다.
+s3:
+  private-bucket: ${S3_PRIVATE_BUCKET}
+  public-bucket: ${S3_PUBLIC_BUCKET}
+  public-base-url: ${S3_PUBLIC_BASE_URL}
+  region: ${AWS_REGION}
+  presigned-url-validity-seconds: 300 # 5분
+  max-file-size-bytes: 10485760 # 10MB
+
 management:
   endpoints:
     web:
