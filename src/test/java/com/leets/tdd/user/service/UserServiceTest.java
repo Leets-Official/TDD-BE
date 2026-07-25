@@ -472,6 +472,22 @@ class UserServiceTest {
         assertThat(user.getProfileImageUrl()).isEqualTo(PROFILE_KEY);
         verify(imageStorageService).confirmUpload(PROFILE_KEY);
         verify(userRepository).save(user);
+        verify(imageStorageService, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("기존 프로필 사진이 있었으면 새 사진 반영 후 예전 사진을 S3에서 지운다")
+    void confirmProfileImageUpload_replacesExistingPhoto_deletesOldKey() {
+        User user = newUser();
+        user.updateProfileImageKey("profiles/1/old.jpg");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(imageStorageService.resolveViewUrl(PROFILE_KEY))
+                .thenReturn("https://public.example.com/" + PROFILE_KEY);
+
+        userService.confirmProfileImageUpload(1L, new ProfileImageConfirmRequest(PROFILE_KEY));
+
+        assertThat(user.getProfileImageUrl()).isEqualTo(PROFILE_KEY);
+        verify(imageStorageService).delete("profiles/1/old.jpg");
     }
 
     @Test
@@ -726,6 +742,7 @@ class UserServiceTest {
         assertThat(dormitory.getDormitory()).isEqualTo("1기숙사");
         assertThat(dormitory.getRejectReason()).isNull();
         verify(dormitoryRepository, never()).save(any());
+        verify(imageStorageService).delete("old-key");
     }
 
     @Test

@@ -178,8 +178,16 @@ public class UserService {
         // 용량/형식 기준을 벗어나면 confirmUpload가 ImageException을 던지면서 객체도 함께 지운다.
         imageStorageService.confirmUpload(key);
 
+        String previousKey = user.getProfileImageUrl();
         user.updateProfileImageKey(key);
         userRepository.save(user);
+
+        // 새 key 반영이 끝난 뒤에만 예전 사진을 지운다 - 그래야 중간에 실패해도 예전 사진은
+        // 그대로 남는다(고아 객체가 남는 대신 데이터를 잃는 사고를 우선 피한다). 같은 key로
+        // confirm이 재호출된 경우(previousKey == key)는 방금 반영한 새 사진을 지우면 안 되니 제외한다.
+        if (previousKey != null && !previousKey.equals(key)) {
+            imageStorageService.delete(previousKey);
+        }
 
         return new ProfileImageUploadResponse(imageStorageService.resolveViewUrl(key));
     }
@@ -234,7 +242,13 @@ public class UserService {
             dormitory = new Dormitory(userId, null, key);
             dormitoryRepository.save(dormitory);
         } else {
+            String previousKey = dormitory.getDormVerificationImageKey();
             dormitory.resubmit(dormitory.getDormitory(), key);
+            // 재제출로 새 key가 반영된 뒤에만 예전(반려됐던) 인증 사진을 지운다 - 반려 사유로
+            // 즉시 삭제하지 않던 사진도, 재제출로 더 이상 참조되지 않게 된 시점엔 정리해야 한다.
+            if (previousKey != null && !previousKey.equals(key)) {
+                imageStorageService.delete(previousKey);
+            }
         }
 
         return new DormVerificationUploadResponse(
