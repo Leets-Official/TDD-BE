@@ -3,6 +3,13 @@ package com.leets.tdd.user.service;
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
+import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
@@ -29,12 +36,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -63,6 +72,12 @@ class UserServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private PartyParticipantRepository partyParticipantRepository;
 
     @InjectMocks
     private UserService userService;
@@ -510,5 +525,101 @@ class UserServiceTest {
 
         assertThat(user.getStatus().name()).isEqualTo("ACTIVE");
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방장으로 진행 중인(RECRUITING/CLOSED/ORDERED) 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_ongoingPartyAsCreator_throwsActivePotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.ACTIVE_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방장이지만 COMPLETED인데 정산이 안 끝난 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_completedButUnsettledAsCreator_throwsUnsettledPotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.UNSETTLED_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여자로 진행 중인(RECRUITING/CLOSED/ORDERED) 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_ongoingPartyAsParticipant_throwsActivePotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+        PartyParticipant participation = new PartyParticipant(
+                10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(participation));
+        when(deliveryPartyRepository.existsByIdInAndStatusIn(eq(List.of(10L)), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.ACTIVE_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여자로 속한 팟이 COMPLETED인데 정산이 안 끝났으면 탈퇴가 거부된다")
+    void withdraw_completedButUnsettledAsParticipant_throwsUnsettledPotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+        PartyParticipant participation = new PartyParticipant(
+                10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(participation));
+        when(deliveryPartyRepository.existsByIdInAndStatusIn(eq(List.of(10L)), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByIdInAndStatusAndSettlementStatusNotIn(
+                eq(List.of(10L)), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.UNSETTLED_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여 중인 팟이 없거나 모두 정산 완료/취소 상태면 탈퇴가 성공한다")
+    void withdraw_noOngoingParty_succeeds() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of());
+
+        userService.withdraw(1L, new WithdrawalRequest("raw-pw"));
+
+        assertThat(user.getStatus().name()).isEqualTo("DELETED");
+        verify(userRepository).save(user);
     }
 }

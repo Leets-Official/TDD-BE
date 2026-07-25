@@ -3,6 +3,12 @@ package com.leets.tdd.user.service;
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
+import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
@@ -24,6 +30,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 마이페이지 조회 + 계정등록(회원가입 완료) API.
@@ -44,6 +54,14 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final NicknameGenerator nicknameGenerator;
+    private final DeliveryPartyRepository deliveryPartyRepository;
+    private final PartyParticipantRepository partyParticipantRepository;
+
+    // 탈퇴 제한: 진행 중인 배달 팟(모집중/마감/주문완료) 또는 완료됐지만 정산이 안 끝난 팟이 있으면 막는다.
+    private static final Set<PartyStatus> ONGOING_PARTY_STATUSES =
+            EnumSet.of(PartyStatus.RECRUITING, PartyStatus.CLOSED, PartyStatus.ORDERED);
+    private static final Set<SettlementStatus> SETTLEMENT_TERMINAL_STATUSES =
+            EnumSet.of(SettlementStatus.COMPLETED, SettlementStatus.CANCELED);
 
     @Transactional
     public MyPageResponse getMyPage(Long userId) {
@@ -171,10 +189,10 @@ public class UserService {
      * suspendedUntil/noShowApprovedCount/mannerTemperature는 softDelete()가 건드리지 않으므로
      * 그대로 유지된다(정지 우회 방지 + 재가입 시 이력 복원).
      * <p>
-     * TODO: "진행 중인 배달팟(정산 미완료) 여부 확인" 단계는 의도적으로 뺐다. party 도메인
-     * 엔티티(DeliveryParty/PartyParticipant) 자체는 이미 있지만, 이 기능을 넣으려면 user 도메인이
-     * party/settlement 도메인에 의존하게 돼서 이 PR(로그인/로그아웃/탈퇴) 범위를 벗어난다.
-     * 별도 이슈로 분리해서 처리한다(명세 실패 케이스: "진행 중인 배달팟이 있어 탈퇴할 수 없습니다.").
+     * 방장/참여자 구분 없이 본인이 속한 팟 중 진행 중(RECRUITING/CLOSED/ORDERED)인 팟이 있으면
+     * ACTIVE_POT_EXISTS로, COMPLETED인데 정산이 아직 안 끝난(SettlementStatus가 COMPLETED/CANCELED가
+     * 아닌) 팟이 있으면 UNSETTLED_POT_EXISTS로 탈퇴를 막는다. 방장 탈퇴로 정산 트리거가 사라지는 문제,
+     * 참여자가 노쇼 신고 전에 탈퇴로 회피하는 문제를 둘 다 막기 위함이다.
      */
     @Transactional
     public void withdraw(Long userId, WithdrawalRequest request) {
@@ -189,9 +207,51 @@ public class UserService {
             throw new UserException(UserErrorCode.PASSWORD_MISMATCH);
         }
 
+        List<Long> joinedPartyIds = joinedPartyIds(userId);
+
+        if (hasOngoingDeliveryParty(userId, joinedPartyIds)) {
+            throw new UserException(UserErrorCode.ACTIVE_POT_EXISTS);
+        }
+        if (hasUnsettledDeliveryParty(userId, joinedPartyIds)) {
+            throw new UserException(UserErrorCode.UNSETTLED_POT_EXISTS);
+        }
+
         user.softDelete();
         user.clearRefreshToken();
         userRepository.save(user);
+    }
+
+    // 참여를 취소하지 않은(JOINED) 팟 id 목록 - 참여자(participant) 기준 체크에 재사용
+    private List<Long> joinedPartyIds(Long userId) {
+        return partyParticipantRepository
+                .findAllByUserIdAndStatus(userId, PartyParticipantStatus.JOINED)
+                .stream()
+                .map(PartyParticipant::getPartyId)
+                .collect(Collectors.toList());
+    }
+
+    // RECRUITING/CLOSED/ORDERED로 진행 중인 팟이 있는지 (방장 + 참여자 기준)
+    private boolean hasOngoingDeliveryParty(Long userId, List<Long> joinedPartyIds) {
+        if (deliveryPartyRepository.existsByCreatorIdAndStatusIn(userId, ONGOING_PARTY_STATUSES)) {
+            return true;
+        }
+        if (joinedPartyIds.isEmpty()) {
+            return false;
+        }
+        return deliveryPartyRepository.existsByIdInAndStatusIn(joinedPartyIds, ONGOING_PARTY_STATUSES);
+    }
+
+    // COMPLETED인데 정산이 아직 안 끝난 팟이 있는지 (방장 + 참여자 기준)
+    private boolean hasUnsettledDeliveryParty(Long userId, List<Long> joinedPartyIds) {
+        if (deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                userId, PartyStatus.COMPLETED, SETTLEMENT_TERMINAL_STATUSES)) {
+            return true;
+        }
+        if (joinedPartyIds.isEmpty()) {
+            return false;
+        }
+        return deliveryPartyRepository.existsByIdInAndStatusAndSettlementStatusNotIn(
+                joinedPartyIds, PartyStatus.COMPLETED, SETTLEMENT_TERMINAL_STATUSES);
     }
 
     private record IssuedTokens(String accessToken, String refreshToken, LocalDateTime refreshTokenExpiresAt) {

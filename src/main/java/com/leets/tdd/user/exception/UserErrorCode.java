@@ -21,7 +21,9 @@ public enum UserErrorCode {
     NEW_PASSWORD_SAME_AS_CURRENT(HttpStatus.BAD_REQUEST, "새 비밀번호가 기존 비밀번호와 동일합니다."),
     REGISTRATION_BLOCKED(HttpStatus.BAD_REQUEST, "가입할 수 없는 이메일입니다."),
     ALREADY_REGISTERED_EMAIL(HttpStatus.BAD_REQUEST, "이미 가입된 이메일입니다."),
-    NICKNAME_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 자동 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    NICKNAME_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "닉네임 자동 생성에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    ACTIVE_POT_EXISTS(HttpStatus.BAD_REQUEST, "진행 중인 배달팟이 있어 탈퇴할 수 없습니다."),
+    UNSETTLED_POT_EXISTS(HttpStatus.BAD_REQUEST, "정산 중인 배달팟이 있어 탈퇴할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;
