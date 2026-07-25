@@ -1,13 +1,19 @@
 package com.leets.tdd.user.service;
 
-import com.leets.tdd.auth.jwt.JwtProvider;
-import com.leets.tdd.auth.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
+import com.leets.tdd.user.dto.ChangePasswordRequest;
+import com.leets.tdd.user.dto.ProfileUpdateRequest;
+import com.leets.tdd.user.dto.ProfileUpdateResponse;
+import com.leets.tdd.user.dto.PushSettingRequest;
+import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -87,6 +93,105 @@ public class UserService {
 
         return new ProfileRegistrationResponse(
                 user.getNickname(), request.dormitory(), tokens.accessToken(), tokens.refreshToken(), "Bearer");
+    }
+
+    /**
+     * 마이페이지 > 프로필 수정. 닉네임/기숙사 동/프로필 사진을 수정한다.
+     * 닉네임이 기존과 같으면(대소문자까지 완전히 동일) 중복 검사에서 제외한다(자기 자신과 비교해
+     * 항상 중복으로 걸리는 것을 방지). 기숙사 정보가 아직 없는 사용자가 처음 동을 등록하는 경우도
+     * 이 API로 처리하며, 이때는 인증 사진 없이 NOT_SUBMITTED 상태로 row를 새로 만든다.
+     */
+    @Transactional
+    public ProfileUpdateResponse updateProfile(Long userId, ProfileUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        String newNickname = request.nickname();
+        if (!newNickname.equals(user.getNickname()) && userRepository.existsByNickname(newNickname)) {
+            throw new UserException(UserErrorCode.NICKNAME_DUPLICATE);
+        }
+
+        String newProfileImageUrl = request.profileImageUrl();
+        user.updateProfile(newNickname, newProfileImageUrl == null || newProfileImageUrl.isBlank()
+                ? null : newProfileImageUrl);
+        userRepository.save(user);
+
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory == null) {
+            dormitory = new Dormitory(userId, request.dormitory(), null);
+            dormitoryRepository.save(dormitory);
+        } else {
+            dormitory.changeDormitory(request.dormitory());
+        }
+
+        return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+    }
+
+    /**
+     * 마이페이지 > 알림 설정. 전체 알림 on/off 통합 토글 하나만 갱신한다(MVP 범위).
+     * 카테고리 구분, 다른 도메인 조회/연동 없이 User.pushEnabled만 바꾼다.
+     */
+    @Transactional
+    public PushSettingResponse updatePushSetting(Long userId, PushSettingRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updatePushEnabled(request.pushEnabled());
+        userRepository.save(user);
+
+        return new PushSettingResponse(user.isPushEnabled());
+    }
+
+    /**
+     * 마이페이지 > 비밀번호 수정. 현재 비밀번호로 본인 확인 후 새 비밀번호로 바꾸고,
+     * 기존 refresh token을 무효화한다(clearRefreshToken - 로그아웃/탈퇴와 동일한 관례).
+     * access token 자체는 상태 없는 JWT라 만료 전까지는 계속 쓸 수 있고, 재로그인은
+     * refresh token으로 재발급받아야 할 때만 필요해진다.
+     */
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new UserException(UserErrorCode.CURRENT_PASSWORD_MISMATCH);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new UserException(UserErrorCode.NEW_PASSWORD_SAME_AS_CURRENT);
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.newPassword()));
+        user.clearRefreshToken();
+        userRepository.save(user);
+    }
+
+    /**
+     * 계정탈퇴. access token으로 신원은 이미 확인됐으니, 비밀번호 재검증 후 soft delete(status
+     * = DELETED) 처리하고 refresh token도 무효화한다(로그아웃과 동일하게 clearRefreshToken()).
+     * suspendedUntil/noShowApprovedCount/mannerTemperature는 softDelete()가 건드리지 않으므로
+     * 그대로 유지된다(정지 우회 방지 + 재가입 시 이력 복원).
+     * <p>
+     * TODO: "진행 중인 배달팟(정산 미완료) 여부 확인" 단계는 의도적으로 뺐다. party 도메인
+     * 엔티티(DeliveryParty/PartyParticipant) 자체는 이미 있지만, 이 기능을 넣으려면 user 도메인이
+     * party/settlement 도메인에 의존하게 돼서 이 PR(로그인/로그아웃/탈퇴) 범위를 벗어난다.
+     * 별도 이슈로 분리해서 처리한다(명세 실패 케이스: "진행 중인 배달팟이 있어 탈퇴할 수 없습니다.").
+     */
+    @Transactional
+    public void withdraw(Long userId, WithdrawalRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        if (!user.canWithdraw()) {
+            throw new UserException(UserErrorCode.WITHDRAWAL_NOT_ALLOWED);
+        }
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new UserException(UserErrorCode.PASSWORD_MISMATCH);
+        }
+
+        user.softDelete();
+        user.clearRefreshToken();
+        userRepository.save(user);
     }
 
     private record IssuedTokens(String accessToken, String refreshToken, LocalDateTime refreshTokenExpiresAt) {

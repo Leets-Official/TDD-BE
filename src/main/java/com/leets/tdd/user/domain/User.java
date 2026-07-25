@@ -198,10 +198,37 @@ public class User {
         this.refreshTokenExpiresAt = refreshTokenExpiresAt;
     }
 
+    // 로그아웃 시 refresh token을 무효화한다. refreshTokenHash는 not-null 컬럼이라 null 대신
+    // RefreshTokenCleanupScheduler와 같은 관례로 빈 문자열을 "토큰 없음" 상태로 쓴다.
+    // refreshTokenExpiresAt은 그대로 둬도 되는데, 어차피 재발급 시 해시 일치 여부부터 확인해서
+    // 빈 문자열과는 절대 일치할 수 없기 때문이다.
+    public void clearRefreshToken() {
+        this.refreshTokenHash = "";
+    }
+
+    // 비밀번호 찾기(재설정)에서 사용. 인자는 이미 인코딩된 해시여야 한다(평문을 여기서 인코딩하지 않음).
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
     // develop의 정산/후기 기능(ReviewServiceImpl)에서 매너온도 갱신에 사용.
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {
         this.mannerTemperature = this.mannerTemperature.add(delta);
+    }
+
+    // 마이페이지 > 알림 설정에서 전체 알림 on/off 토글에 사용. MVP는 카테고리 구분 없이
+    // 이 값 하나로만 결정하고(발송 방식 자체가 클라이언트 필터링이라 서버는 이 플래그만 갱신),
+    // 카테고리별 세분화는 이후 확장 대상이다.
+    public void updatePushEnabled(boolean pushEnabled) {
+        this.pushEnabled = pushEnabled;
+    }
+
+    // 마이페이지 > 프로필 수정에서 닉네임/프로필 사진을 갱신한다. 중복 검사는 서비스 계층에서
+    // 이미 끝낸 값이 들어온다고 가정한다.
+    public void updateProfile(String nickname, String profileImageUrl) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
     }
 
     // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).

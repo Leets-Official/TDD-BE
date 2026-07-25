@@ -1,7 +1,8 @@
 package com.leets.tdd.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leets.tdd.auth.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.user.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,6 +22,7 @@ public class SecurityConfig {
             "/api/v1/auth/email/**",
             "/api/v1/auth/login",
             "/api/v1/auth/reissue",
+            "/api/v1/auth/password-reset",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/api/v1/delivery-parties/**",
@@ -31,9 +33,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtProvider jwtProvider,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            UserRepository userRepository
     ) throws Exception {
-        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtProvider);
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtProvider, userRepository);
         JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint = new JwtAuthenticationEntryPoint(objectMapper);
         http
                 .cors(Customizer.withDefaults())

@@ -1,7 +1,7 @@
 package com.leets.tdd.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leets.tdd.global.auth.JwtAuthErrorType;
+import com.leets.tdd.global.jwt.JwtAuthErrorType;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.user.exception.UserErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +34,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             errorCode = UserErrorCode.TOKEN_MISSING;
         } else if (JwtAuthErrorType.EXPIRED.equals(errorType)) {
             errorCode = UserErrorCode.TOKEN_EXPIRED;
+        } else if (JwtAuthErrorType.BANNED.equals(errorType)) {
+            errorCode = UserErrorCode.ACCOUNT_BANNED;
         } else {
             errorCode = UserErrorCode.INVALID_TOKEN;
         }

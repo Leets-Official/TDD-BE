@@ -1,6 +1,6 @@
 package com.leets.tdd.review.controller;
 
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.review.dto.CreateReviewRequest;
 import com.leets.tdd.review.dto.CreateReviewResponse;

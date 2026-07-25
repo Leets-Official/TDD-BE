@@ -37,6 +37,13 @@ public class EmailVerificationService {
     private static final Duration SIGNUP_COMPLETION_WINDOW = Duration.ofMinutes(15);
 
     /**
+     * 이메일 인증 완료(verifiedAt) 후 비밀번호 재설정을 마쳐야 하는 제한 시간.
+     * SIGNUP_COMPLETION_WINDOW와 값은 같지만(15분), 서로 다른 흐름(회원가입 vs 비밀번호 찾기)이라
+     * 상수를 분리해서 한쪽 정책이 바뀌어도 다른 쪽에 영향이 안 가게 한다.
+     */
+    private static final Duration PASSWORD_RESET_COMPLETION_WINDOW = Duration.ofMinutes(15);
+
+    /**
      * 이메일 단위로 "요청 횟수 확인 + 코드 저장"을 하나의 임계 구역으로 묶기 위한 락.
      * 동시에 같은 이메일로 여러 요청이 들어와도 한 번에 하나씩만 횟수를 확인하고 저장하게 해서
      * 3회 제한이 동시 요청 사이에서 새는 것을 막는다.
@@ -122,6 +129,18 @@ public class EmailVerificationService {
     public boolean consumeSignupVerification(String email) {
         return emailVerificationRepository.consumeIfRecentlyVerified(
                 email, EmailPurpose.SIGNUP, SIGNUP_COMPLETION_WINDOW);
+    }
+
+    /**
+     * 비밀번호 재설정 마지막 단계(AuthService.resetPassword)에서 호출한다.
+     * RESET_PASSWORD 목적으로 인증에 성공(verifiedAt != null)했고 그 시각으로부터 15분이 지나지
+     * 않은 기록이 있으면, 그 자리에서 원자적으로 소비(삭제)하고 true를 반환한다.
+     * consumeSignupVerification과 동일한 확인+소비 원자성 이유(TOCTOU 방지)가 그대로 적용된다.
+     */
+    @Transactional
+    public boolean consumePasswordResetVerification(String email) {
+        return emailVerificationRepository.consumeIfRecentlyVerified(
+                email, EmailPurpose.RESET_PASSWORD, PASSWORD_RESET_COMPLETION_WINDOW);
     }
 
     private void validateNotAlreadyRegistered(String email) {

@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.review.dto.CreateReviewResponse;
 import com.leets.tdd.review.dto.ReceivedReviewListResponse;
 import com.leets.tdd.review.dto.ReceivedReviewResponse;

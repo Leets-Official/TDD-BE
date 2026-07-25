@@ -1,4 +1,4 @@
-package com.leets.tdd.global.auth;
+package com.leets.tdd.global.jwt;
 
 /**
  * JwtAuthenticationFilter가 토큰 검증에 실패한 이유를 request attribute로 넘길 때 쓰는 타입.
@@ -7,5 +7,7 @@ package com.leets.tdd.global.auth;
 public enum JwtAuthErrorType {
     MISSING,
     EXPIRED,
-    INVALID
+    INVALID,
+    // 서명/만료는 정상이지만 DB 조회 결과 이미 탈퇴/정지된 계정인 경우.
+    BANNED
 }

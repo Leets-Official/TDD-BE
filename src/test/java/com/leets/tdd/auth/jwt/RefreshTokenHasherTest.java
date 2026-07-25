@@ -1,5 +1,6 @@
 package com.leets.tdd.auth.jwt;
 
+import com.leets.tdd.global.jwt.RefreshTokenHasher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

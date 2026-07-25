@@ -1,6 +1,6 @@
 package com.leets.tdd.report.controller;
 
-import com.leets.tdd.global.auth.UserPrincipal;
+import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.report.dto.CreateReportRequest;
 import com.leets.tdd.report.dto.CreateReportResponse;
