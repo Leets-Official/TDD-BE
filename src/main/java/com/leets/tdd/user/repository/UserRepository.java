@@ -1,6 +1,7 @@
 package com.leets.tdd.user.repository;
 
 import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.domain.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -19,6 +20,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     List<User> findAllByIdIn(Collection<Long> ids);
+
+    // JwtAuthenticationFilter가 매 요청마다 탈퇴(DELETED)/제한(BANNED) 여부만 확인하는 용도라,
+    // User 엔티티 전체를 로딩하지 않고 status 컬럼만 읽어온다.
+    @Query("SELECT u.status FROM User u WHERE u.id = :userId")
+    Optional<UserStatus> findStatusById(@Param("userId") Long userId);
 
     // 만료된 refresh token 해시 정리용(RefreshTokenCleanupScheduler). 이미 비어있는 건 건드리지 않는다.
     @Modifying(clearAutomatically = true)
