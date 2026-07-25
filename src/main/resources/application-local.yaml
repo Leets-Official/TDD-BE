@@ -14,3 +14,11 @@ jwt:
 
 client:
   allowed-origins: http://localhost:[*]
+
+# 같은 이유(위 jwt 설정 주석 참고)로 aws.s3도 여기 자체 완결시켜 둔다 - S3Config/ImageStorageService가
+# @ActiveProfiles("local") 컨텍스트 로딩 테스트에서 빈으로 만들어지려면 이 값들이 필요하다.
+aws:
+  s3:
+    private-bucket: ${S3_PRIVATE_BUCKET:tdd-assets-930525999361-ap-northeast-2-an}
+    region: ${AWS_REGION:ap-northeast-2}
+    presigned-get-expiration-seconds: 600

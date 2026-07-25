@@ -2,9 +2,15 @@ package com.leets.tdd.user.service;
 
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.s3.ImageStorageService;
+import com.leets.tdd.global.s3.InvalidImageException;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.dto.DormVerificationConfirmRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignResponse;
+import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
@@ -36,6 +42,7 @@ import java.time.LocalDateTime;
 public class UserService {
 
     private static final int MAX_NICKNAME_GENERATION_ATTEMPTS = 5;
+    private static final String DORM_VERIFICATION_KEY_PREFIX = "dormitory-verifications";
 
     private final UserRepository userRepository;
     private final DormitoryRepository dormitoryRepository;
@@ -44,6 +51,7 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final NicknameGenerator nicknameGenerator;
+    private final ImageStorageService imageStorageService;
 
     @Transactional
     public MyPageResponse getMyPage(Long userId) {
@@ -125,6 +133,78 @@ public class UserService {
         }
 
         return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+    }
+
+    /**
+     * 마이페이지 > 기숙사 인증하기 1단계(발급). 브라우저가 S3에 직접 올릴 수 있도록 key와
+     * Presigned PUT URL을 발급한다. DB는 여기서 건드리지 않는다(확정 단계에서만 반영).
+     * 이미 PENDING(심사중)이거나 APPROVED(승인)면 업로드를 시작할 필요가 없으니 여기서 막는다.
+     */
+    @Transactional(readOnly = true)
+    public DormVerificationPresignResponse presignDormVerificationUpload(
+            Long userId, DormVerificationPresignRequest request
+    ) {
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory != null && dormitory.isVerificationInProgress()) {
+            throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
+        }
+
+        String key;
+        try {
+            key = imageStorageService.buildDormVerificationKey(userId, request.contentType());
+        } catch (InvalidImageException e) {
+            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
+        }
+        String uploadUrl = imageStorageService.generatePresignedPutUrl(key, request.contentType());
+
+        return new DormVerificationPresignResponse(key, uploadUrl);
+    }
+
+    /**
+     * 마이페이지 > 기숙사 인증하기 3단계(확정). 브라우저가 S3에 직접 올린 뒤 호출한다.
+     * 클라이언트가 보낸 key를 그대로 신뢰하지 않고, (1) 호출자 본인 몫의 key인지, (2) 실제로
+     * S3에 업로드가 됐는지, (3) 용량/형식이 기준 안에 있는지를 순서대로 검증한 뒤에만 DB에
+     * 반영해 PENDING(심사 대기) 상태로 바꾼다. 검증에 실패하면 업로드된 객체를 지워서 버킷에
+     * 고아 객체가 남지 않게 한다.
+     */
+    @Transactional
+    public DormVerificationUploadResponse confirmDormVerificationUpload(
+            Long userId, DormVerificationConfirmRequest request
+    ) {
+        String key = request.key();
+
+        if (!imageStorageService.belongsTo(DORM_VERIFICATION_KEY_PREFIX, userId, key)) {
+            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
+        }
+
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory != null && dormitory.isVerificationInProgress()) {
+            imageStorageService.deleteObject(key);
+            throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
+        }
+
+        ImageStorageService.UploadedObjectMeta meta = imageStorageService.headObject(key)
+                .orElseThrow(() -> new UserException(UserErrorCode.DORM_VERIFICATION_UPLOAD_NOT_FOUND));
+
+        if (!imageStorageService.isSizeWithinLimit(meta.contentLength())
+                || !imageStorageService.isAllowedContentType(meta.contentType())) {
+            imageStorageService.deleteObject(key);
+            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
+        }
+
+        if (dormitory == null) {
+            dormitory = new Dormitory(userId, null, key);
+            dormitoryRepository.save(dormitory);
+        } else {
+            dormitory.resubmit(dormitory.getDormitory(), key);
+        }
+
+        return new DormVerificationUploadResponse(
+                dormitory.getDormStatus().name(),
+                dormitory.getDormVerifiedAt(),
+                dormitory.getDormVerifiedUntil(),
+                imageStorageService.generatePresignedGetUrl(key)
+        );
     }
 
     /**

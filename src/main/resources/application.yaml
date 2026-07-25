@@ -24,6 +24,10 @@ spring:
           auth: true
           starttls:
             enable: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 # access/refresh 토큰 발급용. 기본값(fallback)을 두지 않는다 - JWT_SECRET이 없으면
 # 기동 자체가 실패해야 "모두가 아는 임시 시크릿"으로 운영에 배포되는 사고를 막을 수 있다.
@@ -35,6 +39,20 @@ jwt:
 
 client:
   allowed-origins: ${CLIENT_ALLOWED_ORIGINS}
+
+# S3 업로드/Presigned URL 발급용. 버킷은 비공개이고 credential은 코드/설정에 두지 않는다 -
+# 운영 EC2는 인스턴스에 연결된 IAM 역할(tdd-ec2-s3-assets-role)을 SDK 기본 자격증명 체인이
+# 자동으로 사용하고, 로컬 개발은 AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY 환경변수나
+# ~/.aws/credentials(aws configure)를 그대로 사용한다.
+# 환경변수 이름(S3_PRIVATE_BUCKET/AWS_REGION)은 deploy.yml이 EC2 런타임 .env에 심어주는
+# Repository Variables 이름과 맞춰야 한다(PR #71 참고). 채팅·기숙사 인증 이미지는 이 비공개
+# 버킷을 쓰고, 프로필 이미지는 별도의 공개 버킷(S3_PUBLIC_BUCKET/S3_PUBLIC_BASE_URL)을 쓰는데
+# 이 도메인 범위 밖이라 아직 안 읽는다.
+aws:
+  s3:
+    private-bucket: ${S3_PRIVATE_BUCKET:tdd-assets-930525999361-ap-northeast-2-an}
+    region: ${AWS_REGION:ap-northeast-2}
+    presigned-get-expiration-seconds: 600 # 10분 - 조회용 Presigned GET URL 만료 시간
 
 management:
   endpoints:

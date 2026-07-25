@@ -2,10 +2,16 @@ package com.leets.tdd.user.service;
 
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.s3.ImageStorageService;
+import com.leets.tdd.global.s3.InvalidImageException;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.dto.DormVerificationConfirmRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignResponse;
+import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
@@ -35,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -63,6 +70,9 @@ class UserServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private ImageStorageService imageStorageService;
 
     @InjectMocks
     private UserService userService;
@@ -453,6 +463,212 @@ class UserServiceTest {
         assertThat(user.getPassword()).isEqualTo("encoded-new-pw");
         assertThat(user.getRefreshTokenHash()).isEmpty();
         verify(userRepository).save(user);
+    }
+
+    // ===== presignDormVerificationUpload =====
+
+    private static final String KEY = "dormitory-verifications/1/uuid.jpg";
+
+    @Test
+    @DisplayName("기숙사 정보가 없어도 발급은 가능하다(DB는 안 건드림)")
+    void presignDormVerificationUpload_noExistingDormitory_returnsKeyAndUrl() {
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.buildDormVerificationKey(1L, "image/jpeg")).thenReturn(KEY);
+        when(imageStorageService.generatePresignedPutUrl(KEY, "image/jpeg"))
+                .thenReturn("https://presigned.example.com/put");
+
+        DormVerificationPresignResponse response =
+                userService.presignDormVerificationUpload(1L, new DormVerificationPresignRequest("image/jpeg"));
+
+        assertThat(response.key()).isEqualTo(KEY);
+        assertThat(response.uploadUrl()).isEqualTo("https://presigned.example.com/put");
+        verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("거절됐던 기숙사 인증도 다시 발급받을 수 있다")
+    void presignDormVerificationUpload_rejectedDormitory_returnsKeyAndUrl() {
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "old-key");
+        dormitory.reject("사진이 흐릿합니다");
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+        when(imageStorageService.buildDormVerificationKey(1L, "image/png")).thenReturn(KEY);
+        when(imageStorageService.generatePresignedPutUrl(KEY, "image/png"))
+                .thenReturn("https://presigned.example.com/put");
+
+        DormVerificationPresignResponse response =
+                userService.presignDormVerificationUpload(1L, new DormVerificationPresignRequest("image/png"));
+
+        assertThat(response.key()).isEqualTo(KEY);
+    }
+
+    @Test
+    @DisplayName("이미 심사 중(PENDING)이면 발급 자체가 거부된다")
+    void presignDormVerificationUpload_alreadyPending_throwsConflict() {
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "existing-key");
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+
+        assertThatThrownBy(() -> userService.presignDormVerificationUpload(
+                1L, new DormVerificationPresignRequest("image/jpeg")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS.getMessage());
+
+        verify(imageStorageService, never()).buildDormVerificationKey(any(), any());
+    }
+
+    @Test
+    @DisplayName("이미 승인(APPROVED)된 상태면 발급 자체가 거부된다")
+    void presignDormVerificationUpload_alreadyApproved_throwsConflict() {
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "existing-key");
+        dormitory.approve(LocalDateTime.now().plusMonths(4));
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+
+        assertThatThrownBy(() -> userService.presignDormVerificationUpload(
+                1L, new DormVerificationPresignRequest("image/jpeg")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS.getMessage());
+    }
+
+    @Test
+    @DisplayName("허용되지 않는 형식이면 발급이 거부된다")
+    void presignDormVerificationUpload_invalidContentType_throwsUserException() {
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.buildDormVerificationKey(1L, "image/gif"))
+                .thenThrow(new InvalidImageException("JPEG, PNG, WEBP 형식의 이미지만 업로드할 수 있습니다."));
+
+        assertThatThrownBy(() -> userService.presignDormVerificationUpload(
+                1L, new DormVerificationPresignRequest("image/gif")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE.getMessage());
+    }
+
+    // ===== confirmDormVerificationUpload =====
+
+    private ImageStorageService.UploadedObjectMeta validMeta() {
+        return new ImageStorageService.UploadedObjectMeta(1024L, "image/jpeg");
+    }
+
+    @Test
+    @DisplayName("검증을 통과하면 기숙사 정보가 없던 사용자도 새로 생성되고 PENDING이 된다")
+    void confirmDormVerificationUpload_noExistingDormitory_createsNewPending() {
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.headObject(KEY)).thenReturn(Optional.of(validMeta()));
+        when(imageStorageService.isSizeWithinLimit(1024L)).thenReturn(true);
+        when(imageStorageService.isAllowedContentType("image/jpeg")).thenReturn(true);
+        when(imageStorageService.generatePresignedGetUrl(KEY)).thenReturn("https://presigned.example.com/get");
+
+        DormVerificationUploadResponse response =
+                userService.confirmDormVerificationUpload(1L, new DormVerificationConfirmRequest(KEY));
+
+        assertThat(response.dormStatus()).isEqualTo(DormStatus.PENDING.name());
+        assertThat(response.dormVerifiedAt()).isNull();
+        assertThat(response.dormVerifiedImageUrl()).isEqualTo("https://presigned.example.com/get");
+        verify(dormitoryRepository).save(any(Dormitory.class));
+        verify(imageStorageService, never()).deleteObject(any());
+    }
+
+    @Test
+    @DisplayName("거절됐던 기숙사 인증도 확정하면 PENDING으로 바뀐다")
+    void confirmDormVerificationUpload_rejectedDormitory_resubmits() {
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "old-key");
+        dormitory.reject("사진이 흐릿합니다");
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+        when(imageStorageService.headObject(KEY)).thenReturn(Optional.of(validMeta()));
+        when(imageStorageService.isSizeWithinLimit(1024L)).thenReturn(true);
+        when(imageStorageService.isAllowedContentType("image/jpeg")).thenReturn(true);
+        when(imageStorageService.generatePresignedGetUrl(KEY)).thenReturn("https://presigned.example.com/get");
+
+        DormVerificationUploadResponse response =
+                userService.confirmDormVerificationUpload(1L, new DormVerificationConfirmRequest(KEY));
+
+        assertThat(response.dormStatus()).isEqualTo(DormStatus.PENDING.name());
+        assertThat(dormitory.getDormitory()).isEqualTo("1기숙사");
+        assertThat(dormitory.getRejectReason()).isNull();
+        verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("본인 몫이 아닌 key면 확정이 거부되고 S3 조회조차 하지 않는다")
+    void confirmDormVerificationUpload_keyNotOwned_throwsUserException() {
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.confirmDormVerificationUpload(
+                1L, new DormVerificationConfirmRequest(KEY)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE.getMessage());
+
+        verify(imageStorageService, never()).headObject(any());
+        verify(dormitoryRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    @DisplayName("확정 시점에 이미 심사 중이면 업로드된 객체를 지우고 거부한다(경쟁 상황 방지)")
+    void confirmDormVerificationUpload_alreadyInProgress_deletesObjectAndThrows() {
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", "existing-key");
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+
+        assertThatThrownBy(() -> userService.confirmDormVerificationUpload(
+                1L, new DormVerificationConfirmRequest(KEY)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS.getMessage());
+
+        verify(imageStorageService).deleteObject(KEY);
+        verify(imageStorageService, never()).headObject(any());
+    }
+
+    @Test
+    @DisplayName("실제로 업로드되지 않은 key면 확정이 거부된다")
+    void confirmDormVerificationUpload_objectNotUploaded_throwsUserException() {
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.headObject(KEY)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.confirmDormVerificationUpload(
+                1L, new DormVerificationConfirmRequest(KEY)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.DORM_VERIFICATION_UPLOAD_NOT_FOUND.getMessage());
+
+        verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("업로드된 객체가 용량 기준을 넘으면 지우고 거부한다")
+    void confirmDormVerificationUpload_oversized_deletesObjectAndThrows() {
+        ImageStorageService.UploadedObjectMeta oversized =
+                new ImageStorageService.UploadedObjectMeta(20L * 1024 * 1024, "image/jpeg");
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.headObject(KEY)).thenReturn(Optional.of(oversized));
+        when(imageStorageService.isSizeWithinLimit(20L * 1024 * 1024)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.confirmDormVerificationUpload(
+                1L, new DormVerificationConfirmRequest(KEY)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE.getMessage());
+
+        verify(imageStorageService).deleteObject(KEY);
+        verify(dormitoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("업로드된 객체 타입이 허용 목록 밖이면 지우고 거부한다")
+    void confirmDormVerificationUpload_disallowedType_deletesObjectAndThrows() {
+        ImageStorageService.UploadedObjectMeta wrongType =
+                new ImageStorageService.UploadedObjectMeta(1024L, "image/gif");
+        when(imageStorageService.belongsTo("dormitory-verifications", 1L, KEY)).thenReturn(true);
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.headObject(KEY)).thenReturn(Optional.of(wrongType));
+        when(imageStorageService.isSizeWithinLimit(1024L)).thenReturn(true);
+        when(imageStorageService.isAllowedContentType("image/gif")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.confirmDormVerificationUpload(
+                1L, new DormVerificationConfirmRequest(KEY)))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE.getMessage());
+
+        verify(imageStorageService).deleteObject(KEY);
     }
 
     // ===== withdraw =====
