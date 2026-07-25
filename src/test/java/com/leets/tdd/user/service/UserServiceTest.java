@@ -47,6 +47,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -630,7 +631,7 @@ class UserServiceTest {
                 .isInstanceOf(UserException.class)
                 .hasMessage(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS.getMessage());
 
-        verify(imageStorageService, never()).issueUploadUrl(any(), any(), any());
+        verify(imageStorageService, never()).issueUploadUrl(any(), anyLong(), any());
     }
 
     @Test
