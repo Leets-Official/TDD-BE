@@ -15,10 +15,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * (ExceptionHandlerExceptionResolver는 advice들을 순서대로 순회하며 "처음 매칭되는" 핸들러를 쓰고,
  *  같은 advice 안에서만 예외 타입의 상속 깊이를 따져 가장 구체적인 메서드를 고른다.)
  * global 패키지는 건드리지 않고, 여기서만 우선순위를 명시해서 해결한다.
+ *
+ * basePackages에 auth.controller도 포함한다: AuthService.resetPassword()/logout()이
+ * (INVALID_VERIFICATION/USER_NOT_FOUND 재사용을 위해) UserException을 던지는데, 이게
+ * AuthController에서 발생한다. user.controller로만 범위를 좁혀두면 이 advice가 AuthController에는
+ * 적용되지 않아서(ControllerAdvice는 "예외 타입"이 아니라 "어느 컨트롤러냐"로 적용 여부를 가른다)
+ * GlobalExceptionHandler의 catch-all(500)로 새어나간다.
  */
 @Slf4j
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(basePackages = "com.leets.tdd.user.controller")
+@RestControllerAdvice(basePackages = {"com.leets.tdd.user.controller", "com.leets.tdd.auth.controller"})
 public class UserExceptionHandler {
 
     @ExceptionHandler(UserException.class)
