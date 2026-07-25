@@ -566,8 +566,6 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
-        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
-                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
         PartyParticipant participation = new PartyParticipant(
                 10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
         when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
