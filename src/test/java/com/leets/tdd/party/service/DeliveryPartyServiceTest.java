@@ -134,5 +134,16 @@ class DeliveryPartyServiceTest {
         // then
         verify(deliveryPartyRepository)
                 .save(deliveryParty);
+        assertThat(deliveryParty.getTitle())
+                .isEqualTo("변경된 제목");
+
+        assertThat(deliveryParty.getDescription())
+                .isEqualTo("변경된 설명");
+
+        assertThat(deliveryParty.getMaxParticipants())
+                .isEqualTo(5);
+
+        assertThat(deliveryParty.getOrderExpectedAt())
+                .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
     }
 }
