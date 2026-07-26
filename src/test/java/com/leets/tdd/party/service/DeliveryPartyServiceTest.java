@@ -8,17 +8,23 @@ import static org.mockito.ArgumentMatchers.any;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.request.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.JoinDeliveryPartyResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
+import com.leets.tdd.user.domain.Dormitory;
+import com.leets.tdd.user.repository.DormitoryRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +40,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private PartyParticipantRepository partyParticipantRepository;
+
+    @Mock
+    private DormitoryRepository dormitoryRepository;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -259,6 +268,51 @@ class DeliveryPartyServiceTest {
 
         assertPartyError(() -> deliveryPartyService.joinDeliveryParty(1L, 2L),
                 PartyErrorCode.PARTY_FULL);
+    }
+
+    @Test
+    void 메인_배달팟_목록은_모집중인_팟만_필터링한다() {
+        DeliveryParty recruitingParty = recruitingParty(4);
+        DeliveryParty closedParty = new DeliveryParty(
+                2L, 1L, "마감된 팟", "", 2, 4, LocalDateTime.now().plusHours(1),
+                PartyStatus.CLOSED, null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(deliveryPartyRepository.findAllByOrderByCreatedAtDesc())
+                .thenReturn(List.of(recruitingParty, closedParty));
+        when(dormitoryRepository.findAllByUserIdIn(any()))
+                .thenReturn(List.of(new Dormitory(1L, "A동", null), new Dormitory(2L, "A동", null)));
+
+        List<CreateDeliveryPartyResponse> response = deliveryPartyService.getDeliveryParties(
+                1L, "A동", null, null);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getTitle()).isEqualTo("치킨");
+        assertThat(response.getFirst().getStatus()).isEqualTo("RECRUITING");
+    }
+
+    @Test
+    void 내_배달팟_목록은_참여자_기준으로_진행중_상태만_조회한다() {
+        DeliveryParty recruitingParty = recruitingParty(4);
+        DeliveryParty completedParty = new DeliveryParty(
+                2L, 1L, "완료된 팟", "", 2, 4, LocalDateTime.now().plusHours(1),
+                PartyStatus.COMPLETED, null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now().minusHours(1), LocalDateTime.now());
+        when(partyParticipantRepository.findAllByUserIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(
+                        new PartyParticipant(1L, 10L, PartyParticipantRole.MEMBER,
+                                PartyParticipantStatus.JOINED, LocalDateTime.now()),
+                        new PartyParticipant(2L, 10L, PartyParticipantRole.MEMBER,
+                                PartyParticipantStatus.JOINED, LocalDateTime.now())
+                ));
+        when(deliveryPartyRepository.findAllById(any())).thenReturn(List.of(recruitingParty, completedParty));
+        when(dormitoryRepository.findAllByUserIdIn(any()))
+                .thenReturn(List.of(new Dormitory(1L, "A동", null), new Dormitory(2L, "A동", null)));
+
+        List<CreateDeliveryPartyResponse> response = deliveryPartyService.getMyDeliveryParties(
+                10L, null, null, null, null, MyPartyStatusFilter.IN_PROGRESS);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.getFirst().getStatus()).isEqualTo("RECRUITING");
     }
 
     private DeliveryParty recruitingParty(int maxParticipants) {

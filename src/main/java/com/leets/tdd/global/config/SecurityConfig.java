@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parties/me", "/api/v1/delivery-parties/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/parties/**", "/api/v1/delivery-parties/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/parties", "/api/v1/delivery-parties").permitAll()
                         // 계정등록(회원가입 완료)은 아직 로그인 전 상태라 토큰이 없다. GET(마이페이지)은
