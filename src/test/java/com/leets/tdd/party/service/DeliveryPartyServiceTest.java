@@ -124,7 +124,11 @@ class DeliveryPartyServiceTest {
 
 
         // when
-        deliveryPartyService.updateDeliveryParty(1L, request);
+        deliveryPartyService.updateDeliveryParty(
+                1L,
+                request,
+                1L
+        );
 
 
         // then

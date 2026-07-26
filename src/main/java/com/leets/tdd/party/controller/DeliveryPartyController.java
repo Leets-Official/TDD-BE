@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,10 +72,15 @@ public class DeliveryPartyController {
     @PutMapping("/{partyId}")
     public ResponseEntity<Void> updateDeliveryParty(
             @PathVariable Long partyId,
-            @RequestBody UpdateDeliveryPartyRequest request
+            @RequestBody UpdateDeliveryPartyRequest request,
+            @AuthenticationPrincipal Long currentUserId
     ) {
 
-        deliveryPartyService.updateDeliveryParty(partyId, request);
+        deliveryPartyService.updateDeliveryParty(
+                partyId,
+                request,
+                currentUserId
+        );
 
         return ResponseEntity.ok().build();
     }
