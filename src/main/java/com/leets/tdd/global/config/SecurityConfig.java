@@ -25,7 +25,6 @@ public class SecurityConfig {
             "/api/v1/auth/password-reset",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/api/v1/delivery-parties/**",
             "/ws/**"
     };
 
@@ -46,6 +45,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/parties/**", "/api/v1/delivery-parties/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/parties", "/api/v1/delivery-parties").permitAll()
                         // 계정등록(회원가입 완료)은 아직 로그인 전 상태라 토큰이 없다. GET(마이페이지)은
                         // 인증이 필요하니 이 경로/메서드만 예외로 공개한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/me").permitAll()

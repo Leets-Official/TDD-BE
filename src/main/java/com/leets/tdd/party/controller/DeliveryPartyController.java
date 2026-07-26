@@ -6,7 +6,10 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.JoinDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
+import com.leets.tdd.global.common.ApiResponse;
+import com.leets.tdd.global.jwt.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/v1/delivery-parties")
+@RequestMapping({"/api/v1/parties", "/api/v1/delivery-parties"})
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
@@ -66,6 +69,21 @@ public class DeliveryPartyController {
                 deliveryPartyService.getDeliveryPartyDetail(partyId);
 
         return ResponseEntity.ok(response);
+    }
+
+
+    // 배달팟 참여 API
+    @PostMapping("/{partyId}/join")
+    public ResponseEntity<ApiResponse<JoinDeliveryPartyResponse>> joinDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        JoinDeliveryPartyResponse response = deliveryPartyService.joinDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("배달팟에 참여했습니다.", response));
     }
 
 

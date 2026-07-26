@@ -11,6 +11,8 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
 
   boolean existsByPartyIdAndUserIdAndStatus(Long partyId, Long userId, PartyParticipantStatus status);
 
+  long countByPartyIdAndStatus(Long partyId, PartyParticipantStatus status);
+
   List<PartyParticipant> findAllByPartyIdAndStatus(Long partyId, PartyParticipantStatus status);
 
   Optional<PartyParticipant> findByPartyIdAndUserId(Long partyId, Long userId);

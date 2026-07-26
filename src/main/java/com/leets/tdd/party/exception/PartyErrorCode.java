@@ -10,6 +10,10 @@ import org.springframework.http.HttpStatus;
 public enum PartyErrorCode implements ErrorCode {
 
     PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 배달팟입니다."),
+    ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여한 배달팟입니다."),
+    RECRUITMENT_CLOSED(HttpStatus.BAD_REQUEST, "모집이 종료된 배달팟입니다."),
+    PARTY_FULL(HttpStatus.CONFLICT, "모집 인원이 모두 찼습니다."),
+    JOIN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달팟 참여에 실패했습니다."),
     NOT_OWNER(HttpStatus.FORBIDDEN, "배달팟을 수정할 권한이 없습니다."),
     INVALID_PARTY_STATUS(
             HttpStatus.BAD_REQUEST,
