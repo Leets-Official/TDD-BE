@@ -1,14 +1,19 @@
 package com.leets.tdd.party.service;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
@@ -17,6 +22,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,6 +31,7 @@ import java.util.stream.Collectors;
 public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
+    private final PartyParticipantRepository partyParticipantRepository;
     private final UserRepository userRepository;
 
 
@@ -100,6 +108,53 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
         return new DeliveryPartyDetailResponse(deliveryParty);
+    }
+
+
+    // 배달팟 참여자 목록 조회 API
+    public PartyParticipantListResponse getPartyParticipants(Long partyId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        List<PartyParticipant> joinedParticipants = partyParticipantRepository
+                .findAllByPartyIdAndStatus(partyId, PartyParticipantStatus.JOINED);
+
+        List<Long> userIds = joinedParticipants.stream()
+                .map(PartyParticipant::getUserId)
+                .filter(userId -> !userId.equals(deliveryParty.getCreatorId()))
+                .collect(Collectors.toList());
+        userIds.add(deliveryParty.getCreatorId());
+
+        Map<Long, User> usersById = userRepository.findAllByIdIn(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        User owner = usersById.get(deliveryParty.getCreatorId());
+        if (owner == null) {
+            throw new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED);
+        }
+
+        List<PartyParticipantResponse> participants = new java.util.ArrayList<>();
+        participants.add(toParticipantResponse(owner, "OWNER"));
+        for (PartyParticipant participant : joinedParticipants) {
+            if (participant.getUserId().equals(deliveryParty.getCreatorId())) {
+                continue;
+            }
+            User user = usersById.get(participant.getUserId());
+            if (user == null) {
+                throw new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED);
+            }
+            participants.add(toParticipantResponse(user, "MEMBER"));
+        }
+
+        return new PartyParticipantListResponse(partyId, participants);
+    }
+
+    private PartyParticipantResponse toParticipantResponse(User user, String role) {
+        return new PartyParticipantResponse(
+                user.getId(),
+                user.getNickname(),
+                user.getProfileImageUrl(),
+                role
+        );
     }
 
 

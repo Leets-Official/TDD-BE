@@ -4,15 +4,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
+import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +34,12 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private PartyParticipantRepository partyParticipantRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -145,5 +160,46 @@ class DeliveryPartyServiceTest {
 
         assertThat(deliveryParty.getOrderExpectedAt())
                 .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
+    }
+
+
+    @Test
+    void 배달팟_참여자_목록_조회_성공() {
+        // given
+        DeliveryParty party = new DeliveryParty(
+                1L, 1L, "치킨", "", 2, 4, LocalDateTime.now().plusHours(1),
+                PartyStatus.RECRUITING, null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now());
+        PartyParticipant member = new PartyParticipant(
+                1L, 2L, PartyParticipantRole.MEMBER,
+                PartyParticipantStatus.JOINED, LocalDateTime.now());
+        User owner = user(1L, "대교", "https://owner-image");
+        User participant = user(2L, "예서", "https://member-image");
+
+        when(deliveryPartyRepository.findById(1L)).thenReturn(Optional.of(party));
+        when(partyParticipantRepository.findAllByPartyIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(member));
+        when(userRepository.findAllByIdIn(List.of(2L, 1L))).thenReturn(List.of(owner, participant));
+
+        // when
+        PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(1L);
+
+        // then
+        assertThat(response.partyId()).isEqualTo(1L);
+        assertThat(response.participants()).hasSize(2);
+        assertThat(response.participants().get(0))
+                .extracting("userId", "nickname", "profileImage", "role")
+                .containsExactly(1L, "대교", "https://owner-image", "OWNER");
+        assertThat(response.participants().get(1))
+                .extracting("userId", "nickname", "profileImage", "role")
+                .containsExactly(2L, "예서", "https://member-image", "MEMBER");
+    }
+
+    private User user(Long id, String nickname, String profileImageUrl) {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(id);
+        when(user.getNickname()).thenReturn(nickname);
+        when(user.getProfileImageUrl()).thenReturn(profileImageUrl);
+        return user;
     }
 }
