@@ -1,5 +1,7 @@
 package com.leets.tdd.party.domain;
 
+import com.leets.tdd.party.exception.PartyErrorCode;
+import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,7 +21,9 @@ import lombok.NoArgsConstructor;
 @Getter
 @Table(name = "delivery_parties")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-/** 배달팟의 공통 정보와 정산 진행 상태를 함께 저장하는 엔티티입니다. */
+/**
+ * 배달팟의 공통 정보와 정산 진행 상태를 함께 저장하는 엔티티입니다.
+ */
 public class DeliveryParty {
 
   @Id
@@ -77,6 +81,7 @@ public class DeliveryParty {
   @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
 
+
   public DeliveryParty(
           Long creatorId,
           Long foodCategoryId,
@@ -111,30 +116,43 @@ public class DeliveryParty {
     this.updatedAt = updatedAt;
   }
 
-  public void requestSettlement(int totalAmount, Long bankAccountId, LocalDateTime requestedAt) {
-    if (settlementStatus != SettlementStatus.NONE && settlementStatus != SettlementStatus.CANCELED) {
+
+  public void requestSettlement(
+          int totalAmount,
+          Long bankAccountId,
+          LocalDateTime requestedAt
+  ) {
+    if (settlementStatus != SettlementStatus.NONE
+            && settlementStatus != SettlementStatus.CANCELED) {
       throw new IllegalStateException("정산 요청을 시작할 수 없는 상태입니다.");
     }
+
     this.settlementStatus = SettlementStatus.REQUESTED;
     this.settlementTotalAmount = totalAmount;
     this.settlementBankAccountId = bankAccountId;
     this.settlementRequestedAt = requestedAt;
   }
 
+
   public void completeSettlement() {
     if (settlementStatus != SettlementStatus.REQUESTED) {
       throw new IllegalStateException("진행 중인 정산만 완료할 수 있습니다.");
     }
+
     this.settlementStatus = SettlementStatus.COMPLETED;
   }
+
 
   public void cancelSettlement() {
     if (settlementStatus != SettlementStatus.REQUESTED) {
       throw new IllegalStateException("진행 중인 정산만 취소할 수 있습니다.");
     }
+
     this.settlementStatus = SettlementStatus.CANCELED;
   }
 
+
+  // 배달팟 수정
   public void update(
           String title,
           String description,
@@ -145,6 +163,18 @@ public class DeliveryParty {
     this.description = description;
     this.maxParticipants = maxParticipants;
     this.orderExpectedAt = orderExpectedAt;
+    this.updatedAt = LocalDateTime.now();
+  }
+
+
+  // 배달팟 모집 취소
+  public void cancel() {
+
+    if (status != PartyStatus.RECRUITING) {
+      throw new PartyException(PartyErrorCode.INVALID_PARTY_STATUS);
+    }
+
+    this.status = PartyStatus.CANCELED;
     this.updatedAt = LocalDateTime.now();
   }
 }

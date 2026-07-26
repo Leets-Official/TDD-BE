@@ -114,12 +114,11 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
 
-        // 작성자(파티장)만 수정 가능
         if (!deliveryParty.getCreatorId().equals(currentUserId)) {
             throw new PartyException(PartyErrorCode.NOT_OWNER);
         }
 
-// 모집 중(RECRUITING) 상태에서만 수정 가능
+
         if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
             throw new PartyException(PartyErrorCode.INVALID_PARTY_STATUS);
         }
@@ -131,6 +130,30 @@ public class DeliveryPartyService {
                 request.getMaxParticipants(),
                 request.getOrderExpectedAt()
         );
+
         deliveryPartyRepository.save(deliveryParty);
+    }
+
+
+    // 배달팟 삭제(취소) API
+    public Long deleteDeliveryParty(
+            Long partyId,
+            Long currentUserId
+    ) {
+
+        DeliveryParty deliveryParty = deliveryPartyRepository.findById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.NOT_OWNER);
+        }
+
+        deliveryParty.cancel();
+
+        System.out.println("서비스 내부 상태 = " + deliveryParty.getStatus());
+
+        deliveryPartyRepository.save(deliveryParty);
+
+        return partyId;
     }
 }

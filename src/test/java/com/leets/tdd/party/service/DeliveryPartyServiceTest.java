@@ -52,7 +52,6 @@ class DeliveryPartyServiceTest {
                 LocalDateTime.now()
         );
 
-
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
 
@@ -109,7 +108,6 @@ class DeliveryPartyServiceTest {
                 LocalDateTime.now()
         );
 
-
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
 
@@ -134,6 +132,7 @@ class DeliveryPartyServiceTest {
         // then
         verify(deliveryPartyRepository)
                 .save(deliveryParty);
+
         assertThat(deliveryParty.getTitle())
                 .isEqualTo("변경된 제목");
 
@@ -145,5 +144,48 @@ class DeliveryPartyServiceTest {
 
         assertThat(deliveryParty.getOrderExpectedAt())
                 .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
+    }
+
+
+    @Test
+    void 배달팟_삭제_성공() {
+
+        // given
+        DeliveryParty deliveryParty = new DeliveryParty(
+                1L,
+                1L,
+                "치킨 같이 시켜요",
+                "오늘 저녁 배달팟",
+                2,
+                4,
+                LocalDateTime.of(2026, 7, 24, 19, 30),
+                PartyStatus.RECRUITING,
+                null,
+                SettlementStatus.NONE,
+                null,
+                null,
+                null,
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+
+        when(deliveryPartyRepository.findById(1L))
+                .thenReturn(Optional.of(deliveryParty));
+
+
+        // when
+        Long result = null;
+
+        try {
+            result = deliveryPartyService.deleteDeliveryParty(1L, 1L);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
+
+
+        // then
+        assertThat(result)
+                .isEqualTo(1L);
     }
 }

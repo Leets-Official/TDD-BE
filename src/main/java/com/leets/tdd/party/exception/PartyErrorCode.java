@@ -13,7 +13,7 @@ public enum PartyErrorCode implements ErrorCode {
     NOT_OWNER(HttpStatus.FORBIDDEN, "배달팟을 수정할 권한이 없습니다."),
     INVALID_PARTY_STATUS(
             HttpStatus.BAD_REQUEST,
-            "현재 상태에서는 배달팟을 수정할 수 없습니다."
+            "현재 상태에서는 배달팟을 변경할 수 없습니다."
     );
 
     private final HttpStatus httpStatus;
