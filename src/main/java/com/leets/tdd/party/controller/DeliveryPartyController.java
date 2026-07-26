@@ -6,13 +6,17 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
+import com.leets.tdd.global.common.ApiResponse;
+import com.leets.tdd.global.jwt.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,6 +69,21 @@ public class DeliveryPartyController {
                 deliveryPartyService.getDeliveryPartyDetail(partyId);
 
         return ResponseEntity.ok(response);
+    }
+
+
+    // 배달팟 참여 취소 API
+    @DeleteMapping("/{partyId}/participants")
+    public ResponseEntity<ApiResponse<LeaveDeliveryPartyResponse>> leaveDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        LeaveDeliveryPartyResponse response = deliveryPartyService.leaveDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("배달팟 참여가 취소되었습니다.", response));
     }
 
 

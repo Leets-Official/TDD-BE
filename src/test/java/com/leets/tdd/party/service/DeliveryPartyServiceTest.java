@@ -6,11 +6,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
+import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -25,6 +31,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private PartyParticipantRepository partyParticipantRepository;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -145,5 +154,79 @@ class DeliveryPartyServiceTest {
 
         assertThat(deliveryParty.getOrderExpectedAt())
                 .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
+    }
+
+
+    @Test
+    void 배달팟_참여_취소_성공() {
+        // given
+        DeliveryParty party = recruitingParty(4);
+        PartyParticipant participant = joinedParticipant(1L, 2L);
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(party));
+        when(partyParticipantRepository.findByPartyIdAndUserId(1L, 2L))
+                .thenReturn(Optional.of(participant));
+        when(partyParticipantRepository.countByPartyIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(1L);
+
+        // when
+        LeaveDeliveryPartyResponse response = deliveryPartyService.leaveDeliveryParty(1L, 2L);
+
+        // then
+        verify(partyParticipantRepository).saveAndFlush(participant);
+        assertThat(participant.getStatus()).isEqualTo(PartyParticipantStatus.CANCELED);
+        assertThat(participant.getCanceledAt()).isNotNull();
+        assertThat(response.partyId()).isEqualTo(1L);
+        assertThat(response.currentParticipants()).isEqualTo(2L);
+        assertThat(response.maxParticipants()).isEqualTo(4);
+    }
+
+    @Test
+    void 참여하지_않은_배달팟은_취소할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(recruitingParty(4)));
+        when(partyParticipantRepository.findByPartyIdAndUserId(1L, 2L)).thenReturn(Optional.empty());
+
+        assertPartyError(() -> deliveryPartyService.leaveDeliveryParty(1L, 2L),
+                PartyErrorCode.NOT_PARTICIPANT);
+    }
+
+    @Test
+    void 모집중이_아닌_배달팟에서는_참여를_취소할_수_없다() {
+        DeliveryParty party = new DeliveryParty(
+                1L, 1L, "치킨", "", 2, 4, LocalDateTime.now().plusHours(1),
+                PartyStatus.CLOSED, null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(party));
+        when(partyParticipantRepository.findByPartyIdAndUserId(1L, 2L))
+                .thenReturn(Optional.of(joinedParticipant(1L, 2L)));
+
+        assertPartyError(() -> deliveryPartyService.leaveDeliveryParty(1L, 2L),
+                PartyErrorCode.LEAVE_NOT_ALLOWED);
+    }
+
+    @Test
+    void 파티장은_참여를_취소할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(recruitingParty(4)));
+
+        assertPartyError(() -> deliveryPartyService.leaveDeliveryParty(1L, 1L),
+                PartyErrorCode.HOST_CANNOT_LEAVE);
+    }
+
+    private DeliveryParty recruitingParty(int maxParticipants) {
+        return new DeliveryParty(
+                1L, 1L, "치킨", "", 2, maxParticipants, LocalDateTime.now().plusHours(1),
+                PartyStatus.RECRUITING, null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now());
+    }
+
+    private PartyParticipant joinedParticipant(Long partyId, Long userId) {
+        return new PartyParticipant(
+                partyId, userId, PartyParticipantRole.MEMBER,
+                PartyParticipantStatus.JOINED, LocalDateTime.now());
+    }
+
+    private void assertPartyError(Runnable action, PartyErrorCode expectedErrorCode) {
+        assertThatThrownBy(action::run)
+                .isInstanceOfSatisfying(PartyException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedErrorCode));
     }
 }
