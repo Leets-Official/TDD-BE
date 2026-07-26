@@ -134,4 +134,17 @@ public class DeliveryParty {
     }
     this.settlementStatus = SettlementStatus.CANCELED;
   }
+
+  public void update(
+          String title,
+          String description,
+          Integer maxParticipants,
+          LocalDateTime orderExpectedAt
+  ) {
+    this.title = title;
+    this.description = description;
+    this.maxParticipants = maxParticipants;
+    this.orderExpectedAt = orderExpectedAt;
+    this.updatedAt = LocalDateTime.now();
+  }
 }
