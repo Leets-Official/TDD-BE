@@ -6,7 +6,10 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
+import com.leets.tdd.global.common.ApiResponse;
+import com.leets.tdd.global.jwt.UserPrincipal;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/v1/delivery-parties")
+@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
@@ -83,5 +87,18 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{partyId}/order")
+    public ResponseEntity<ApiResponse<OrderDeliveryPartyResponse>> completeOrder(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+        OrderDeliveryPartyResponse response = deliveryPartyService.completeOrder(
+                partyId,
+                userPrincipal.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("주문이 완료되었습니다.", response));
     }
 }
