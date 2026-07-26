@@ -9,6 +9,8 @@ import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
+import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
@@ -145,5 +147,65 @@ class DeliveryPartyServiceTest {
 
         assertThat(deliveryParty.getOrderExpectedAt())
                 .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
+    }
+
+    @Test
+    void 파티장이_모집중인_배달팟을_마감한다() {
+        DeliveryParty deliveryParty = new DeliveryParty(
+                1L, 1L, "치킨 같이 시켜요", "오늘 저녁 배달팟", 2, 4,
+                LocalDateTime.of(2026, 7, 24, 19, 30), PartyStatus.RECRUITING,
+                null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(deliveryParty));
+
+        CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(1L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(1L);
+        assertThat(response.status()).isEqualTo("CLOSED");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.CLOSED);
+        assertThat(deliveryParty.getClosedAt()).isNotNull();
+    }
+
+    @Test
+    void 존재하지_않는_배달팟은_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(999L, 1L))
+                .isInstanceOfSatisfying(PartyException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(PartyErrorCode.PARTY_NOT_FOUND));
+    }
+
+    @Test
+    void 파티장이_아니면_모집을_마감할_수_없다() {
+        DeliveryParty deliveryParty = new DeliveryParty(
+                1L, 1L, "치킨 같이 시켜요", "오늘 저녁 배달팟", 2, 4,
+                LocalDateTime.of(2026, 7, 24, 19, 30), PartyStatus.RECRUITING,
+                null, SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(deliveryParty));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(1L, 2L))
+                .isInstanceOfSatisfying(PartyException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(PartyErrorCode.CLOSE_FORBIDDEN));
+    }
+
+    @Test
+    void 이미_마감된_배달팟은_다시_마감할_수_없다() {
+        DeliveryParty deliveryParty = new DeliveryParty(
+                1L, 1L, "치킨 같이 시켜요", "오늘 저녁 배달팟", 2, 4,
+                LocalDateTime.of(2026, 7, 24, 19, 30), PartyStatus.CLOSED,
+                LocalDateTime.now(), SettlementStatus.NONE, null, null, null,
+                LocalDateTime.now(), LocalDateTime.now()
+        );
+        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(deliveryParty));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(1L, 1L))
+                .isInstanceOfSatisfying(PartyException.class,
+                        exception -> assertThat(exception.getErrorCode())
+                                .isEqualTo(PartyErrorCode.ALREADY_CLOSED));
     }
 }

@@ -147,4 +147,10 @@ public class DeliveryParty {
     this.orderExpectedAt = orderExpectedAt;
     this.updatedAt = LocalDateTime.now();
   }
+
+  public void close() {
+    this.status = PartyStatus.CLOSED;
+    this.closedAt = LocalDateTime.now();
+    this.updatedAt = LocalDateTime.now();
+  }
 }

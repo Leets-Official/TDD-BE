@@ -5,6 +5,7 @@ import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
@@ -14,6 +15,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -132,5 +134,26 @@ public class DeliveryPartyService {
                 request.getOrderExpectedAt()
         );
         deliveryPartyRepository.save(deliveryParty);
+    }
+
+    @Transactional
+    public CloseDeliveryPartyResponse closeDeliveryParty(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.CLOSE_FORBIDDEN);
+        }
+
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
+        }
+
+        deliveryParty.close();
+
+        return new CloseDeliveryPartyResponse(
+                deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
+                deliveryParty.getStatus().name()
+        );
     }
 }
