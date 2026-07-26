@@ -22,6 +22,7 @@ import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
 import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.PushSubscriptionRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -418,6 +419,60 @@ class UserServiceTest {
         PushSettingResponse response = userService.updatePushSetting(1L, new PushSettingRequest(true));
 
         assertThat(response.pushEnabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("유저가 없으면 알림 구독 등록 시 예외가 발생한다")
+    void registerPushSubscription_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("구독 정보를 등록하면 endpoint/키가 저장된다")
+    void registerPushSubscription_success() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key"));
+
+        assertThat(user.getPushEndpoint()).isEqualTo("https://fcm.googleapis.com/endpoint");
+        assertThat(user.getPushP256dhKey()).isEqualTo("p256dh-key");
+        assertThat(user.getPushAuthKey()).isEqualTo("auth-key");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("이미 구독 정보가 있어도 새 값으로 덮어쓴다(재구독)")
+    void registerPushSubscription_overwritesExisting() {
+        User user = newUser();
+        user.updatePushSubscription("old-endpoint", "old-p256dh", "old-auth");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("new-endpoint", "new-p256dh", "new-auth"));
+
+        assertThat(user.getPushEndpoint()).isEqualTo("new-endpoint");
+        assertThat(user.getPushP256dhKey()).isEqualTo("new-p256dh");
+        assertThat(user.getPushAuthKey()).isEqualTo("new-auth");
+    }
+
+    @Test
+    @DisplayName("구독을 등록해도 알림 on/off 설정(pushEnabled)은 건드리지 않는다")
+    void registerPushSubscription_doesNotChangePushEnabled() {
+        User user = newUser();
+        user.updatePushEnabled(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key"));
+
+        assertThat(user.isPushEnabled()).isFalse();
     }
 
     @Test

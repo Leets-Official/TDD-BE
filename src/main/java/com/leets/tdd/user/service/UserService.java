@@ -19,6 +19,7 @@ import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
 import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.PushSubscriptionRequest;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
@@ -158,6 +159,22 @@ public class UserService {
         userRepository.save(user);
 
         return new PushSettingResponse(user.isPushEnabled());
+    }
+
+    /**
+     * 마이페이지 > 알림 구독 등록. 브라우저 PushManager.subscribe()로 발급받은 endpoint/키를
+     * 저장한다(Web Push 방식, FCM 아님 - User 엔티티 컬럼이 이미 endpoint/p256dh/auth 구조).
+     * 기존 구독이 있어도 그냥 덮어쓴다(기기 교체/브라우저 재설치 시 재구독하는 흔한 케이스라
+     * 별도 중복 에러 없이 최신 값으로 갱신). pushEnabled는 건드리지 않는다(updatePushSetting의
+     * 별도 관심사).
+     */
+    @Transactional
+    public void registerPushSubscription(Long userId, PushSubscriptionRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updatePushSubscription(request.endpoint(), request.p256dhKey(), request.authKey());
+        userRepository.save(user);
     }
 
     /**

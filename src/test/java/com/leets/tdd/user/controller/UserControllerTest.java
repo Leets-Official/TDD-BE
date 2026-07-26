@@ -27,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -153,5 +154,48 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized());
 
         verify(userService, never()).withdraw(any(), any());
+    }
+
+    private static final String SUBSCRIPTION_BODY =
+            "{\"endpoint\":\"https://fcm.googleapis.com/endpoint\",\"p256dhKey\":\"p256dh-key\",\"authKey\":\"auth-key\"}";
+
+    @Test
+    @DisplayName("토큰 없이 구독 등록을 요청하면 401을 반환하고 서비스가 호출되지 않는다")
+    void registerPushSubscription_withoutToken_returns401() throws Exception {
+        mockMvc.perform(post("/api/v1/users/me/push-subscription")
+                        .contentType("application/json")
+                        .content(SUBSCRIPTION_BODY))
+                .andExpect(status().isUnauthorized());
+
+        verify(userService, never()).registerPushSubscription(any(), any());
+    }
+
+    @Test
+    @DisplayName("유효한 토큰이면 구독 등록에 성공한다")
+    void registerPushSubscription_success_returns200() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+
+        mockMvc.perform(post("/api/v1/users/me/push-subscription")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content(SUBSCRIPTION_BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(userService).registerPushSubscription(eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("endpoint가 비어있으면 400을 반환한다")
+    void registerPushSubscription_blankEndpoint_returns400() throws Exception {
+        stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
+
+        mockMvc.perform(post("/api/v1/users/me/push-subscription")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType("application/json")
+                        .content("{\"endpoint\":\"\",\"p256dhKey\":\"p256dh-key\",\"authKey\":\"auth-key\"}"))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).registerPushSubscription(any(), any());
     }
 }
