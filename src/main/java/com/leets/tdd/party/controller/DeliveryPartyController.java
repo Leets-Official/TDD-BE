@@ -13,6 +13,10 @@ import com.leets.tdd.party.service.DeliveryPartyService;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.global.jwt.UserPrincipal;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -129,13 +133,13 @@ public class DeliveryPartyController {
     public ResponseEntity<Void> updateDeliveryParty(
             @PathVariable Long partyId,
             @RequestBody UpdateDeliveryPartyRequest request,
-            @AuthenticationPrincipal Long currentUserId
+            @AuthenticationPrincipal UserPrincipal currentUser
     ) {
 
         deliveryPartyService.updateDeliveryParty(
                 partyId,
                 request,
-                currentUserId
+                currentUser.userId()
         );
 
         return ResponseEntity.ok().build();
@@ -144,15 +148,34 @@ public class DeliveryPartyController {
 
     // 배달팟 삭제(취소) API
     @DeleteMapping("/{partyId}")
+    @Operation(
+            summary = "배달팟 모집 취소",
+            description = "파티장이 모집 중인 배달팟을 취소하고 상태를 CANCELED로 변경합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "배달팟 모집 취소 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400", description = "모집 중인 배달팟이 아님"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403", description = "파티장이 아님"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "배달팟을 찾을 수 없음"
+            )
+    })
     public ResponseEntity<Long> deleteDeliveryParty(
             @PathVariable Long partyId,
-            @AuthenticationPrincipal Long currentUserId
+            @AuthenticationPrincipal UserPrincipal currentUser
     ) {
 
         Long deletedPartyId =
                 deliveryPartyService.deleteDeliveryParty(
                         partyId,
-                        currentUserId
+                        currentUser.userId()
                 );
 
         return ResponseEntity.ok(deletedPartyId);

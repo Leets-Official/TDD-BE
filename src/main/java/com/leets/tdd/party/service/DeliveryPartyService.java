@@ -298,12 +298,14 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
         if (!deliveryParty.getCreatorId().equals(currentUserId)) {
-            throw new PartyException(PartyErrorCode.NOT_OWNER);
+            throw new PartyException(PartyErrorCode.DELETE_FORBIDDEN);
+        }
+
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.CANCEL_NOT_RECRUITING);
         }
 
         deliveryParty.cancel();
-
-        System.out.println("서비스 내부 상태 = " + deliveryParty.getStatus());
 
         deliveryPartyRepository.save(deliveryParty);
 
