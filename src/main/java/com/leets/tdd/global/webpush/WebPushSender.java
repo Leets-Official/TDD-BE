@@ -75,6 +75,11 @@ public class WebPushSender {
             } else if (statusCode >= 400) {
                 log.warn("웹푸시 발송 실패: userId={}, status={}", userId, statusCode);
             }
+        } catch (InterruptedException e) {
+            // 인터럽트 플래그 복원: 호출 스레드의 중단 신호를 그대로 상위로 전달한다
+            // (삼키면 스레드 풀에서 shutdown 신호가 유실되는 등의 문제가 생김).
+            Thread.currentThread().interrupt();
+            log.warn("웹푸시 발송 중 인터럽트: userId={}", userId);
         } catch (Exception e) {
             // 알림 실패가 호출 도메인의 트랜잭션에 영향을 주지 않도록 예외를 삼킨다.
             log.warn("웹푸시 발송 중 예외: userId={}", userId, e);
