@@ -96,4 +96,18 @@ class ChatImageServiceTest {
 
         verify(imageStorageService, never()).confirmUpload(anyString());
     }
+
+    @Test
+    @DisplayName("참여자여도 다른 팟의 key로 확정하면 거부되고 검증을 호출하지 않는다")
+    void confirm_keyFromAnotherParty_throws() {
+        givenParticipant(true);  // party 1의 참여자는 맞음
+        // 하지만 key는 다른 팟(chat/999/)의 것 → 거부돼야 함
+        String otherPartyKey = "chat/999/1f0a2c4e-1b3d-4f5a-8c9d-0e1f2a3b4c5d.jpg";
+
+        assertThatThrownBy(() ->
+                chatImageService.confirmUpload(PARTY_ID, USER_ID, new ChatImageConfirmRequest(otherPartyKey)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(imageStorageService, never()).confirmUpload(anyString());
+    }
 }
