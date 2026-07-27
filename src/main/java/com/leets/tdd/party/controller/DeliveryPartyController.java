@@ -11,6 +11,10 @@ import com.leets.tdd.party.service.DeliveryPartyService;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.global.jwt.UserPrincipal;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -73,6 +77,25 @@ public class DeliveryPartyController {
 
     // 배달팟 참여자 목록 조회 API
     @GetMapping("/{partyId}/participants")
+    @Operation(
+            summary = "배달팟 참여자 목록 조회",
+            description = "로그인한 사용자가 배달팟의 참여자 목록을 조회합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200", description = "참여자 목록 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401", description = "로그인 필요"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404", description = "배달팟을 찾을 수 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500", description = "참여자 목록 조회 실패"
+            )
+    })
     public ResponseEntity<ApiResponse<PartyParticipantListResponse>> getPartyParticipants(
             @PathVariable Long partyId,
             @AuthenticationPrincipal UserPrincipal currentUser
