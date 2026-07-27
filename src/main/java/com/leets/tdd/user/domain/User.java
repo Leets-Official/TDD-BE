@@ -224,6 +224,16 @@ public class User {
         this.pushEnabled = pushEnabled;
     }
 
+    // Web Push 구독 등록/갱신에 사용(브라우저 PushManager.subscribe()가 돌려주는
+    // {endpoint, keys: {p256dh, auth}}를 그대로 저장). pushEnabled는 건드리지 않는다 -
+    // on/off는 updatePushEnabled로 별도 관리되는 관심사라, 구독 등록 자체가 알림을
+    // 자동으로 켜거나 끄지는 않는다(가입 시 기본값 true가 이미 적용되어 있음).
+    public void updatePushSubscription(String pushEndpoint, String pushP256dhKey, String pushAuthKey) {
+        this.pushEndpoint = pushEndpoint;
+        this.pushP256dhKey = pushP256dhKey;
+        this.pushAuthKey = pushAuthKey;
+    }
+
     // 마이페이지 > 프로필 수정에서 닉네임/프로필 사진을 갱신한다. 중복 검사는 서비스 계층에서
     // 이미 끝낸 값이 들어온다고 가정한다.
     public void updateProfile(String nickname, String profileImageUrl) {

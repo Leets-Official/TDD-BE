@@ -20,4 +20,7 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
   List<PartyParticipant> findAllByPartyIdIn(Collection<Long> partyIds);
 
   List<PartyParticipant> findAllByUserIdAndPaymentStatusIsNotNull(Long userId);
+
+  // 탈퇴 제한: 이 사용자가 참여 중인(취소하지 않은) 팟 목록
+  List<PartyParticipant> findAllByUserIdAndStatus(Long userId, PartyParticipantStatus status);
 }

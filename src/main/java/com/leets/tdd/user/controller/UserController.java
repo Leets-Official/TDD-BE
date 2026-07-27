@@ -18,6 +18,7 @@ import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
 import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.PushSubscriptionRequest;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -174,6 +175,23 @@ public class UserController {
     ) {
         PushSettingResponse response = userService.updatePushSetting(userPrincipal.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("알림 설정이 변경되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "알림 구독 등록",
+            description = "브라우저 Web Push 구독 정보(endpoint/p256dhKey/authKey)를 저장한다. "
+                    + "이미 등록된 구독이 있으면 최신 값으로 덮어쓴다(기기 교체/재설치 시 재구독 케이스). "
+                    + "알림 on/off 자체는 이 API가 아니라 /me/push-setting으로 따로 관리한다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/push-subscription")
+    public ResponseEntity<ApiResponse<Void>> registerPushSubscription(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody PushSubscriptionRequest request
+    ) {
+        userService.registerPushSubscription(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("구독 정보가 저장되었습니다."));
     }
 
     @Operation(

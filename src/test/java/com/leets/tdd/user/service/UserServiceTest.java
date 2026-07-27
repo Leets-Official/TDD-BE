@@ -8,6 +8,13 @@ import com.leets.tdd.global.storage.dto.PresignedUploadResponse;
 import com.leets.tdd.global.storage.exception.ImageErrorCode;
 import com.leets.tdd.global.storage.exception.ImageException;
 import com.leets.tdd.auth.service.EmailVerificationService;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
+import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.DormStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
@@ -28,6 +35,7 @@ import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
 import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.PushSubscriptionRequest;
 import com.leets.tdd.user.exception.UserErrorCode;
 import com.leets.tdd.user.exception.UserException;
 import com.leets.tdd.user.repository.DormitoryRepository;
@@ -42,6 +50,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,6 +88,12 @@ class UserServiceTest {
 
     @Mock
     private NicknameGenerator nicknameGenerator;
+
+    @Mock
+    private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private PartyParticipantRepository partyParticipantRepository;
 
     @Mock
     private ImageStorageService imageStorageService;
@@ -582,6 +597,60 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("유저가 없으면 알림 구독 등록 시 예외가 발생한다")
+    void registerPushSubscription_userNotFound() {
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.USER_NOT_FOUND.getMessage());
+    }
+
+    @Test
+    @DisplayName("구독 정보를 등록하면 endpoint/키가 저장된다")
+    void registerPushSubscription_success() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key"));
+
+        assertThat(user.getPushEndpoint()).isEqualTo("https://fcm.googleapis.com/endpoint");
+        assertThat(user.getPushP256dhKey()).isEqualTo("p256dh-key");
+        assertThat(user.getPushAuthKey()).isEqualTo("auth-key");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("이미 구독 정보가 있어도 새 값으로 덮어쓴다(재구독)")
+    void registerPushSubscription_overwritesExisting() {
+        User user = newUser();
+        user.updatePushSubscription("old-endpoint", "old-p256dh", "old-auth");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("new-endpoint", "new-p256dh", "new-auth"));
+
+        assertThat(user.getPushEndpoint()).isEqualTo("new-endpoint");
+        assertThat(user.getPushP256dhKey()).isEqualTo("new-p256dh");
+        assertThat(user.getPushAuthKey()).isEqualTo("new-auth");
+    }
+
+    @Test
+    @DisplayName("구독을 등록해도 알림 on/off 설정(pushEnabled)은 건드리지 않는다")
+    void registerPushSubscription_doesNotChangePushEnabled() {
+        User user = newUser();
+        user.updatePushEnabled(false);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.registerPushSubscription(
+                1L, new PushSubscriptionRequest("https://fcm.googleapis.com/endpoint", "p256dh-key", "auth-key"));
+
+        assertThat(user.isPushEnabled()).isFalse();
+    }
+
+    @Test
     @DisplayName("유저가 없으면 비밀번호 수정 시 예외가 발생한다")
     void changePassword_userNotFound() {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
@@ -857,5 +926,99 @@ class UserServiceTest {
 
         assertThat(user.getStatus().name()).isEqualTo("ACTIVE");
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방장으로 진행 중인(RECRUITING/CLOSED/ORDERED) 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_ongoingPartyAsCreator_throwsActivePotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.ACTIVE_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("방장이지만 COMPLETED인데 정산이 안 끝난 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_completedButUnsettledAsCreator_throwsUnsettledPotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.UNSETTLED_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여자로 진행 중인(RECRUITING/CLOSED/ORDERED) 팟이 있으면 탈퇴가 거부된다")
+    void withdraw_ongoingPartyAsParticipant_throwsActivePotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        PartyParticipant participation = new PartyParticipant(
+                10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(participation));
+        when(deliveryPartyRepository.existsByIdInAndStatusIn(eq(List.of(10L)), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.ACTIVE_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여자로 속한 팟이 COMPLETED인데 정산이 안 끝났으면 탈퇴가 거부된다")
+    void withdraw_completedButUnsettledAsParticipant_throwsUnsettledPotExists() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+        PartyParticipant participation = new PartyParticipant(
+                10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of(participation));
+        when(deliveryPartyRepository.existsByIdInAndStatusIn(eq(List.of(10L)), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByIdInAndStatusAndSettlementStatusNotIn(
+                eq(List.of(10L)), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
+                .isInstanceOf(UserException.class)
+                .hasMessage(UserErrorCode.UNSETTLED_POT_EXISTS.getMessage());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("참여 중인 팟이 없거나 모두 정산 완료/취소 상태면 탈퇴가 성공한다")
+    void withdraw_noOngoingParty_succeeds() {
+        User user = newUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
+        when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
+                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+        when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
+                .thenReturn(List.of());
+
+        userService.withdraw(1L, new WithdrawalRequest("raw-pw"));
+
+        assertThat(user.getStatus().name()).isEqualTo("DELETED");
+        verify(userRepository).save(user);
     }
 }
