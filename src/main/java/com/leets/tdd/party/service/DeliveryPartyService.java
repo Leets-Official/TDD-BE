@@ -6,6 +6,8 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
@@ -90,6 +92,30 @@ public class DeliveryPartyService {
                         deliveryParty.getCreatedAt()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    public RecruitingDeliveryPartyListResponse getRecruitingDeliveryParties(
+            Long categoryId,
+            Long dormitoryId,
+            LocalDateTime orderExpectedFrom,
+            LocalDateTime orderExpectedTo
+    ) {
+        List<RecruitingDeliveryPartyResponse> parties = deliveryPartyRepository
+                .findRecruitingDeliveryParties(categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo)
+                .stream()
+                .map(party -> new RecruitingDeliveryPartyResponse(
+                        party.getPartyId(),
+                        party.getTitle(),
+                        party.getCategory(),
+                        Math.toIntExact(party.getCurrentParticipants()),
+                        party.getMaxParticipants(),
+                        party.getStatus(),
+                        party.getOrderExpectedAt(),
+                        party.getDormitory()
+                ))
+                .toList();
+
+        return new RecruitingDeliveryPartyListResponse(parties);
     }
 
 
