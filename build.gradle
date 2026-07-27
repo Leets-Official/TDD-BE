@@ -50,6 +50,11 @@ dependencies {
     implementation platform('software.amazon.awssdk:bom:2.31.78')
     implementation 'software.amazon.awssdk:s3'
 
+    // Web Push (웹푸시 알림 발송)
+    // VAPID 서명 + 페이로드 암호화(ECDH/HKDF)를 처리한다. BouncyCastle이 암호화 provider로 필요하다.
+    implementation 'nl.martijndwars:web-push:5.1.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

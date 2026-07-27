@@ -22,3 +22,9 @@ s3:
   region: ap-northeast-2
   presigned-url-validity-seconds: 300
   max-file-size-bytes: 10485760
+
+webpush:
+  vapid:
+    public-key: test-public-key
+    private-key: test-private-key
+    subject: mailto:test@test.com
