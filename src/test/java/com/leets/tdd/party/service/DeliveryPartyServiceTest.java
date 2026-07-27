@@ -7,10 +7,14 @@ import static org.mockito.Mockito.when;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -25,6 +29,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private PartyParticipantRepository partyParticipantRepository;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -84,6 +91,32 @@ class DeliveryPartyServiceTest {
                 deliveryPartyService.getDeliveryPartyDetail(999L)
         )
                 .isInstanceOf(PartyException.class);
+    }
+
+    @Test
+    void 참여중인_내_배달팟을_필터와_함께_조회한다() {
+        MyDeliveryPartyProjection projection = org.mockito.Mockito.mock(MyDeliveryPartyProjection.class);
+        LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
+        when(projection.getPartyId()).thenReturn(15L);
+        when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
+        when(projection.getCategory()).thenReturn("치킨");
+        when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMaxParticipants()).thenReturn(4);
+        when(projection.getStatus()).thenReturn("RECRUITING");
+        when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
+        when(projection.getDormitory()).thenReturn("1기숙사");
+        when(partyParticipantRepository.findMyDeliveryParties(
+                1L, "ONGOING", 1L, 2L, null, null
+        )).thenReturn(java.util.List.of(projection));
+
+        MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
+                1L, MyPartyStatusFilter.ONGOING, 1L, 2L, null, null
+        );
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().partyId()).isEqualTo(15L);
+        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+        assertThat(response.parties().getFirst().dormitory()).isEqualTo("1기숙사");
     }
 
 
