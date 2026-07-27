@@ -51,7 +51,8 @@ public class SecurityConfig {
                         ).authenticated()
                         .requestMatchers(
                                 HttpMethod.DELETE,
-                                "/api/v1/delivery-parties/*"
+                                "/api/v1/delivery-parties/*",
+                                "/api/v1/parties/*"
                         ).authenticated()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         // 계정등록(회원가입 완료)은 아직 로그인 전 상태라 토큰이 없다. GET(마이페이지)은

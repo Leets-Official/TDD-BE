@@ -54,10 +54,12 @@ class DeliveryPartyControllerTest {
         when(userRepository.findStatusById(1L)).thenReturn(Optional.of(UserStatus.ACTIVE));
         when(deliveryPartyService.deleteDeliveryParty(1L, 1L)).thenReturn(1L);
 
-        mockMvc.perform(delete("/api/v1/delivery-parties/1")
+        mockMvc.perform(delete("/api/v1/parties/1")
                         .header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").value(1));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("배달팟이 삭제되었습니다."))
+                .andExpect(jsonPath("$.data.partyId").value(1));
 
         verify(deliveryPartyService).deleteDeliveryParty(1L, 1L);
     }

@@ -16,7 +16,7 @@ public enum PartyErrorCode implements ErrorCode {
             "현재 상태에서는 배달팟을 변경할 수 없습니다."
     ),
     DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "배달팟을 삭제할 권한이 없습니다."),
-    CANCEL_NOT_RECRUITING(HttpStatus.BAD_REQUEST, "모집 중인 배달팟만 취소할 수 있습니다.");
+    CANCEL_NOT_RECRUITING(HttpStatus.BAD_REQUEST, "현재 상태에서는 배달팟을 삭제할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

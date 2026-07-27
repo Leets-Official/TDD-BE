@@ -2,15 +2,16 @@ package com.leets.tdd.party.controller;
 
 import java.util.List;
 
+import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.DeleteDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import com.leets.tdd.global.jwt.UserPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
@@ -30,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/v1/delivery-parties")
+@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
@@ -101,12 +102,12 @@ public class DeliveryPartyController {
     )
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "배달팟 모집 취소 성공"),
-            @ApiResponse(responseCode = "400", description = "모집 중인 배달팟이 아님"),
-            @ApiResponse(responseCode = "403", description = "파티장이 아님"),
-            @ApiResponse(responseCode = "404", description = "배달팟을 찾을 수 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 모집 취소 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "취소할 수 없는 배달팟 상태"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟을 찾을 수 없음")
     })
-    public ResponseEntity<Long> deleteDeliveryParty(
+    public ResponseEntity<ApiResponse<DeleteDeliveryPartyResponse>> deleteDeliveryParty(
             @PathVariable Long partyId,
             @AuthenticationPrincipal UserPrincipal userPrincipal
     ) {
@@ -117,6 +118,9 @@ public class DeliveryPartyController {
                         userPrincipal.userId()
                 );
 
-        return ResponseEntity.ok(deletedPartyId);
+        return ResponseEntity.ok(ApiResponse.success(
+                "배달팟이 삭제되었습니다.",
+                new DeleteDeliveryPartyResponse(deletedPartyId)
+        ));
     }
 }
