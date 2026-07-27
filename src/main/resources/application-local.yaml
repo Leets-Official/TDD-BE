@@ -28,6 +28,10 @@ s3:
 
 webpush:
   vapid:
-    public-key: ${VAPID_PUBLIC_KEY}
-    private-key: ${VAPID_PRIVATE_KEY}
+    # PushService 빈이 이 값을 실제 P-256 키(공개키: Base64URL 65바이트 uncompressed point,
+    # 개인키: Base64URL 32바이트 스칼라)로 디코딩하므로 형식이 어긋나면 컨텍스트 로딩이 실패한다.
+    # jwt.secret과 같은 이유(테스트가 이 프로필 파일을 그대로 로딩)로 로컬용 더미 키페어를 기본값에 심어둔다.
+    # 실제 발송이 필요한 로컬/운영에서는 VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY 환경변수를 반드시 주입한다.
+    public-key: ${VAPID_PUBLIC_KEY:BGMyjLxMaFUX5LadTKuhHTM-y2-Ku-m5LnkMX17rgP39vawWMWBl78JIZpv8Tm7VITonkLS9n4iesQIVvi0dxA4}
+    private-key: ${VAPID_PRIVATE_KEY:5JN8lWinNgLSvCWFFInV13Eoy_zDjsYSaS_QwUpYNJs}
     subject: ${VAPID_SUBJECT:mailto:admin@tdd.com}
