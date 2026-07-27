@@ -52,7 +52,7 @@ class ChatImageServiceTest {
     @DisplayName("팟 참여자가 발급을 요청하면 key와 업로드 URL을 반환한다")
     void presign_participant_returnsUrl() {
         givenParticipant(true);
-        when(imageStorageService.issueUploadUrl(eq(ImageCategory.CHAT), eq(PARTY_ID), anyString()))
+        when(imageStorageService.issueUploadUrl(eq(ImageCategory.CHAT), eq(PARTY_ID), eq("image/jpeg")))
                 .thenReturn(new PresignedUploadResponse(CHAT_KEY, "https://s3.example.com/put", "image/jpeg", 300));
 
         ChatImagePresignResponse response =
@@ -60,7 +60,7 @@ class ChatImageServiceTest {
 
         assertThat(response.key()).isEqualTo(CHAT_KEY);
         assertThat(response.uploadUrl()).isEqualTo("https://s3.example.com/put");
-        verify(imageStorageService).issueUploadUrl(eq(ImageCategory.CHAT), eq(PARTY_ID), anyString());
+        verify(imageStorageService).issueUploadUrl(eq(ImageCategory.CHAT), eq(PARTY_ID), eq("image/jpeg"));
     }
 
     @Test
