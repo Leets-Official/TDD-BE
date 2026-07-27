@@ -7,6 +7,7 @@ import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.exception.AuthErrorCode;
 import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.repository.EmailVerificationRepository;
+import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -143,9 +144,27 @@ public class EmailVerificationService {
                 email, EmailPurpose.RESET_PASSWORD, PASSWORD_RESET_COMPLETION_WINDOW);
     }
 
+    /**
+     * 재가입(SIGNUP) 시 기존 회원(email로 찾은) 상태별 발송 가능 여부.
+     * ACTIVE/SUSPENDED: 이미 쓰고 있는 계정 -> 이미 가입된 이메일
+     * BANNED: 영구 제한 -> 발송 불가
+     * DELETED: 탈퇴했던 계정(soft delete라 noShowApprovedCount/suspendedUntil/mannerTemperature는
+     *          유지됨). 정지기간이 아직 안 지났으면(탈퇴로 정지 우회 방지) 발송 불가,
+     *          지났거나 정지 이력이 없으면 재사용(reactivate) 대상으로 통과시켜 코드를 발송한다.
+     */
     private void validateNotAlreadyRegistered(String email) {
-        if (userRepository.existsByEmail(email)) {
-            throw new AuthException(AuthErrorCode.ALREADY_REGISTERED_EMAIL);
+        userRepository.findByEmail(email).ifPresent(this::validateExistingUserForSignup);
+    }
+
+    private void validateExistingUserForSignup(User user) {
+        switch (user.getStatus()) {
+            case ACTIVE, SUSPENDED -> throw new AuthException(AuthErrorCode.ALREADY_REGISTERED_EMAIL);
+            case BANNED -> throw new AuthException(AuthErrorCode.ACCOUNT_BANNED);
+            case DELETED -> {
+                if (user.isWithinSuspensionPeriod()) {
+                    throw new AuthException(AuthErrorCode.ACCOUNT_BANNED);
+                }
+            }
         }
     }
 

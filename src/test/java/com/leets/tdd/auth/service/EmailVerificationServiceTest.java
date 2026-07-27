@@ -7,6 +7,7 @@ import com.leets.tdd.auth.dto.VerifyEmailCodeRequest;
 import com.leets.tdd.auth.exception.AuthErrorCode;
 import com.leets.tdd.auth.exception.AuthException;
 import com.leets.tdd.auth.repository.EmailVerificationRepository;
+import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,17 +49,95 @@ class EmailVerificationServiceTest {
     @InjectMocks
     private EmailVerificationService emailVerificationService;
 
+    private User existingUser() {
+        return new User("abcd@gachon.ac.kr", "가나디", "encoded-pw",
+                "old-refresh-hash", LocalDateTime.now().plusDays(30));
+    }
+
     @Test
-    @DisplayName("SIGNUP 목적으로 이미 가입된 이메일이면 예외가 발생한다")
-    void alreadyRegisteredEmail() {
+    @DisplayName("SIGNUP 목적으로 이미 가입된(ACTIVE) 이메일이면 예외가 발생한다")
+    void alreadyRegisteredEmail_active() {
         EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
-        when(userRepository.existsByEmail("abcd@gachon.ac.kr")).thenReturn(true);
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(existingUser()));
 
         assertThatThrownBy(() -> emailVerificationService.sendVerificationCode(request))
                 .isInstanceOf(AuthException.class)
                 .hasMessage(AuthErrorCode.ALREADY_REGISTERED_EMAIL.getMessage());
 
         verifyNoInteractions(mailService);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 목적으로 이미 가입된(SUSPENDED) 이메일이면 예외가 발생한다")
+    void alreadyRegisteredEmail_suspended() {
+        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        User suspended = existingUser();
+        suspended.suspend(LocalDateTime.now().plusDays(3));
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(suspended));
+
+        assertThatThrownBy(() -> emailVerificationService.sendVerificationCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.ALREADY_REGISTERED_EMAIL.getMessage());
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 목적으로 BANNED 계정이면 이용이 제한된 계정 예외가 발생한다")
+    void signup_bannedAccount_throwsAccountBanned() {
+        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        User banned = existingUser();
+        banned.ban();
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(banned));
+
+        assertThatThrownBy(() -> emailVerificationService.sendVerificationCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.ACCOUNT_BANNED.getMessage());
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 목적으로 DELETED 계정이고 정지기간이 아직 안 지났으면 이용이 제한된 계정 예외가 발생한다")
+    void signup_deletedWithinSuspension_throwsAccountBanned() {
+        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        User deleted = existingUser();
+        deleted.suspend(LocalDateTime.now().plusDays(3));
+        deleted.softDelete();
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(deleted));
+
+        assertThatThrownBy(() -> emailVerificationService.sendVerificationCode(request))
+                .isInstanceOf(AuthException.class)
+                .hasMessage(AuthErrorCode.ACCOUNT_BANNED.getMessage());
+
+        verifyNoInteractions(mailService);
+    }
+
+    @Test
+    @DisplayName("SIGNUP 목적으로 DELETED 계정이고 정지기간이 지났으면 재가입으로 간주해 코드를 발송한다")
+    void signup_deletedAfterSuspension_sendsCode() {
+        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        User deleted = existingUser();
+        deleted.suspend(LocalDateTime.now().minusDays(1));
+        deleted.softDelete();
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(deleted));
+
+        assertThatCode(() -> emailVerificationService.sendVerificationCode(request)).doesNotThrowAnyException();
+
+        verify(mailService).sendVerificationCode(eq("abcd@gachon.ac.kr"), anyString());
+    }
+
+    @Test
+    @DisplayName("SIGNUP 목적으로 DELETED 계정이고 정지 이력이 없으면 재가입으로 간주해 코드를 발송한다")
+    void signup_deletedWithoutSuspensionHistory_sendsCode() {
+        EmailVerificationRequest request = new EmailVerificationRequest("abcd@gachon.ac.kr", EmailPurpose.SIGNUP);
+        User deleted = existingUser();
+        deleted.softDelete();
+        when(userRepository.findByEmail("abcd@gachon.ac.kr")).thenReturn(Optional.of(deleted));
+
+        assertThatCode(() -> emailVerificationService.sendVerificationCode(request)).doesNotThrowAnyException();
+
+        verify(mailService).sendVerificationCode(eq("abcd@gachon.ac.kr"), anyString());
     }
 
     @Test

@@ -241,6 +241,13 @@ public class User {
         this.profileImageUrl = profileImageUrl;
     }
 
+    // 프로필 이미지 업로드 확정(confirm) 시 이미지만 갱신한다. 컬럼/필드 이름은 profileImageUrl이지만
+    // 실제로 저장하는 값은 S3 객체 key다(공개 버킷 + base URL로 조립해서 응답한다 - 컬럼명 정리는
+    // MVP 이후 별도 PR로 예정돼 있어 여기서는 안 건드린다). 닉네임은 이 메서드에서 건드리지 않는다.
+    public void updateProfileImageKey(String profileImageKey) {
+        this.profileImageUrl = profileImageKey;
+    }
+
     // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).
     // lastFailedLoginAt 하나로 "실패 3회 미만일 때의 5분 리셋 판단"과
     // "실패 3회 이상일 때의 15분 차단 판단"을 둘 다 계산한다(별도 만료시각 컬럼 없이).
