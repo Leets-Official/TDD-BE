@@ -1,14 +1,19 @@
 package com.leets.tdd.party.service;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.FoodCategoryRepository;
+import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
@@ -17,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +31,8 @@ public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
     private final UserRepository userRepository;
+    private final FoodCategoryRepository foodCategoryRepository;
+    private final PartyParticipantRepository partyParticipantRepository;
 
 
     // 배달팟 생성 API
@@ -100,6 +108,49 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
 
         return new DeliveryPartyDetailResponse(deliveryParty);
+    }
+
+    public DeliveryPartySearchResponse searchDeliveryParties(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            throw new PartyException(PartyErrorCode.SEARCH_KEYWORD_REQUIRED);
+        }
+
+        try {
+            List<DeliveryParty> deliveryParties = deliveryPartyRepository
+                    .findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(keyword.trim());
+
+            if (deliveryParties.isEmpty()) {
+                throw new PartyException(PartyErrorCode.SEARCH_RESULT_NOT_FOUND);
+            }
+
+            Map<Long, String> categoryNames = foodCategoryRepository.findAllById(
+                            deliveryParties.stream()
+                                    .map(DeliveryParty::getFoodCategoryId)
+                                    .distinct()
+                                    .toList()
+                    ).stream()
+                    .collect(Collectors.toMap(category -> category.getId(), category -> category.getName()));
+
+            List<DeliveryPartySearchItemResponse> parties = deliveryParties.stream()
+                    .map(deliveryParty -> new DeliveryPartySearchItemResponse(
+                            deliveryParty.getId(),
+                            deliveryParty.getTitle(),
+                            categoryNames.getOrDefault(deliveryParty.getFoodCategoryId(), "알 수 없음"),
+                            Math.toIntExact(partyParticipantRepository.countByPartyIdAndStatus(
+                                    deliveryParty.getId(),
+                                    PartyParticipantStatus.JOINED
+                            )),
+                            deliveryParty.getMaxParticipants(),
+                            deliveryParty.getStatus().name()
+                    ))
+                    .toList();
+
+            return new DeliveryPartySearchResponse(parties);
+        } catch (PartyException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new PartyException(PartyErrorCode.SEARCH_FAILED);
+        }
     }
 
 

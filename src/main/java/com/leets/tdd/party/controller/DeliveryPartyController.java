@@ -6,8 +6,12 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 
+import com.leets.tdd.global.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -19,11 +23,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/v1/delivery-parties")
+@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
@@ -52,6 +57,24 @@ public class DeliveryPartyController {
                 deliveryPartyService.getDeliveryParties();
 
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+            summary = "배달팟 검색",
+            description = "검색어가 포함된 배달팟 제목을 조회합니다. 로그인 없이 사용할 수 있습니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 검색 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "검색어 미입력"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "검색 결과 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 검색 실패")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<DeliveryPartySearchResponse>> searchDeliveryParties(
+            @RequestParam(required = false) String keyword
+    ) {
+        DeliveryPartySearchResponse response = deliveryPartyService.searchDeliveryParties(keyword);
+        return ResponseEntity.ok(ApiResponse.success("배달팟 검색에 성공했습니다.", response));
     }
 
 

@@ -15,6 +15,8 @@ public interface DeliveryPartyRepository extends JpaRepository<DeliveryParty, Lo
   // 배달팟 목록 조회
   List<DeliveryParty> findAllByOrderByCreatedAtDesc();
 
+  List<DeliveryParty> findByTitleContainingIgnoreCaseOrderByCreatedAtDesc(String keyword);
+
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<DeliveryParty> findWithLockById(Long id);
 
