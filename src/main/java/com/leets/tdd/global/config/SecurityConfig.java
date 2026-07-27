@@ -25,7 +25,9 @@ public class SecurityConfig {
             "/api/v1/auth/password-reset",
             "/swagger-ui/**",
             "/v3/api-docs/**",
-            "/ws/**"
+            "/ws/**",
+            // 데이터를 조회/변경하지 않는 순수 계산기(운영자용 보조 도구)라 인증 없이 연다.
+            "/api/v1/internal/**"
     };
 
     @Bean

@@ -94,6 +94,8 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: ${{ secrets.SPRING_DATASOURCE_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CLIENT_ALLOWED_ORIGINS: ${{ secrets.CLIENT_ALLOWED_ORIGINS }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
           S3_PRIVATE_BUCKET: ${{ vars.S3_PRIVATE_BUCKET }}
           S3_PUBLIC_BUCKET: ${{ vars.S3_PUBLIC_BUCKET }}
           S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
@@ -103,7 +105,7 @@ jobs:
             echo "::error::JWT_SECRET is not configured"
             exit 1
           }
-          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION; do
+          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION MAIL_USERNAME MAIL_APP_PASSWORD; do
             test -n "${!name}" || {
               echo "::error::$name is not configured"
               exit 1
@@ -116,6 +118,8 @@ jobs:
             printf 'SPRING_DATASOURCE_PASSWORD=%s\n' "$SPRING_DATASOURCE_PASSWORD"
             printf 'JWT_SECRET=%s\n' "$JWT_SECRET"
             printf 'CLIENT_ALLOWED_ORIGINS=%s\n' "$CLIENT_ALLOWED_ORIGINS"
+            printf 'MAIL_USERNAME=%s\n' "$MAIL_USERNAME"
+            printf 'MAIL_APP_PASSWORD=%s\n' "$MAIL_APP_PASSWORD"
             printf 'S3_PRIVATE_BUCKET=%s\n' "$S3_PRIVATE_BUCKET"
             printf 'S3_PUBLIC_BUCKET=%s\n' "$S3_PUBLIC_BUCKET"
             printf 'S3_PUBLIC_BASE_URL=%s\n' "$S3_PUBLIC_BASE_URL"
