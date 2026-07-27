@@ -11,6 +11,9 @@ import com.leets.tdd.party.service.DeliveryPartyService;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.global.jwt.UserPrincipal;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -89,6 +92,18 @@ public class DeliveryPartyController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(
+            summary = "배달팟 모집 마감",
+            description = "파티장이 모집 중인 배달팟의 모집을 마감합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "모집 마감 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장 권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟을 찾을 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감됨")
+    })
     @PatchMapping("/{partyId}/close")
     public ResponseEntity<ApiResponse<CloseDeliveryPartyResponse>> closeDeliveryParty(
             @PathVariable Long partyId,
