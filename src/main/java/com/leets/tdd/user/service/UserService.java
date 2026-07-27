@@ -2,6 +2,9 @@ package com.leets.tdd.user.service;
 
 import com.leets.tdd.global.jwt.JwtProvider;
 import com.leets.tdd.global.jwt.RefreshTokenHasher;
+import com.leets.tdd.global.storage.ImageCategory;
+import com.leets.tdd.global.storage.ImageStorageService;
+import com.leets.tdd.global.storage.dto.PresignedUploadResponse;
 import com.leets.tdd.auth.service.EmailVerificationService;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
@@ -11,7 +14,15 @@ import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.dto.DormVerificationConfirmRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignResponse;
+import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
+import com.leets.tdd.user.dto.ProfileImageConfirmRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignResponse;
+import com.leets.tdd.user.dto.ProfileImageUploadResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ChangePasswordRequest;
@@ -56,6 +67,7 @@ public class UserService {
     private final NicknameGenerator nicknameGenerator;
     private final DeliveryPartyRepository deliveryPartyRepository;
     private final PartyParticipantRepository partyParticipantRepository;
+    private final ImageStorageService imageStorageService;
 
     // 탈퇴 제한: 진행 중인 배달 팟(모집중/마감/주문완료) 또는 완료됐지만 정산이 안 끝난 팟이 있으면 막는다.
     private static final Set<PartyStatus> ONGOING_PARTY_STATUSES =
@@ -129,9 +141,15 @@ public class UserService {
             throw new UserException(UserErrorCode.NICKNAME_DUPLICATE);
         }
 
+        // profileImageUrl 필드 자체를 생략(null)했으면 기존 사진을 그대로 두고, 명시적으로 빈
+        // 문자열을 보냈을 때만 삭제(null)로 반영한다 - 그래야 닉네임/기숙사 동만 바꾸는 요청이
+        // 매번 사진을 지워버리는 사고를 피할 수 있다(DTO의 @Pattern("^$")이 null 또는 빈 문자열만
+        // 통과시키므로 여기 도달하는 시점엔 그 둘 중 하나뿐이다).
         String newProfileImageUrl = request.profileImageUrl();
-        user.updateProfile(newNickname, newProfileImageUrl == null || newProfileImageUrl.isBlank()
-                ? null : newProfileImageUrl);
+        String profileImageUrlToSave = newProfileImageUrl == null
+                ? user.getProfileImageUrl()
+                : (newProfileImageUrl.isBlank() ? null : newProfileImageUrl);
+        user.updateProfile(newNickname, profileImageUrlToSave);
         userRepository.save(user);
 
         Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
@@ -143,6 +161,120 @@ public class UserService {
         }
 
         return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+    }
+
+    /**
+     * 마이페이지 > 프로필 사진 업로드 1단계(발급). 기숙사 인증과 같은 presign/confirm 흐름이지만
+     * 공개 버킷을 쓴다. 프로필은 승인 절차가 없어(기숙사와 달리 "이미 진행 중" 같은 충돌 상태가
+     * 없음) DB 조회 없이 바로 key + Presigned PUT URL을 발급한다.
+     */
+    @Transactional(readOnly = true)
+    public ProfileImagePresignResponse presignProfileImageUpload(Long userId, ProfileImagePresignRequest request) {
+        PresignedUploadResponse presigned =
+                imageStorageService.issueUploadUrl(ImageCategory.PROFILE, userId, request.contentType());
+
+        return new ProfileImagePresignResponse(presigned.key(), presigned.uploadUrl());
+    }
+
+    /**
+     * 마이페이지 > 프로필 사진 업로드 2단계(확정). 클라이언트가 보낸 key를 그대로 신뢰하지 않고
+     * (1) 호출자 본인 몫의 key인지, (2) 실제로 S3(공개 버킷)에 업로드가 됐는지, (3) 용량/형식이
+     * 기준 안에 있는지를 검증한 뒤에만 User.profileImageUrl(실제로는 key 저장)에 반영한다.
+     * 응답의 profileImageUrl은 공개 버킷 base URL과 key를 조립한 완성된 URL이다(만료 없음).
+     */
+    @Transactional
+    public ProfileImageUploadResponse confirmProfileImageUpload(Long userId, ProfileImageConfirmRequest request) {
+        String key = request.key();
+
+        if (!belongsToUser(ImageCategory.PROFILE, userId, key)) {
+            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+        // 용량/형식 기준을 벗어나면 confirmUpload가 ImageException을 던지면서 객체도 함께 지운다.
+        imageStorageService.confirmUpload(key);
+
+        String previousKey = user.getProfileImageUrl();
+        user.updateProfileImageKey(key);
+        userRepository.save(user);
+
+        // 새 key 반영이 끝난 뒤에만 예전 사진을 지운다 - 그래야 중간에 실패해도 예전 사진은
+        // 그대로 남는다(고아 객체가 남는 대신 데이터를 잃는 사고를 우선 피한다). 같은 key로
+        // confirm이 재호출된 경우(previousKey == key)는 방금 반영한 새 사진을 지우면 안 되니 제외한다.
+        if (previousKey != null && !previousKey.equals(key)) {
+            imageStorageService.delete(previousKey);
+        }
+
+        return new ProfileImageUploadResponse(imageStorageService.resolveViewUrl(key));
+    }
+
+    /**
+     * 마이페이지 > 기숙사 인증하기 1단계(발급). 브라우저가 S3에 직접 올릴 수 있도록 key와
+     * Presigned PUT URL을 발급한다. DB는 여기서 건드리지 않는다(확정 단계에서만 반영).
+     * 이미 PENDING(심사중)이거나 APPROVED(승인)면 업로드를 시작할 필요가 없으니 여기서 막는다.
+     */
+    @Transactional(readOnly = true)
+    public DormVerificationPresignResponse presignDormVerificationUpload(
+            Long userId, DormVerificationPresignRequest request
+    ) {
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory != null && dormitory.isVerificationInProgress()) {
+            throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
+        }
+
+        PresignedUploadResponse presigned = imageStorageService.issueUploadUrl(
+                ImageCategory.DORMITORY_VERIFICATION, userId, request.contentType());
+
+        return new DormVerificationPresignResponse(presigned.key(), presigned.uploadUrl());
+    }
+
+    /**
+     * 마이페이지 > 기숙사 인증하기 3단계(확정). 브라우저가 S3에 직접 올린 뒤 호출한다.
+     * 클라이언트가 보낸 key를 그대로 신뢰하지 않고, (1) 호출자 본인 몫의 key인지, (2) 실제로
+     * S3에 업로드가 됐는지, (3) 용량/형식이 기준 안에 있는지를 순서대로 검증한 뒤에만 DB에
+     * 반영해 PENDING(심사 대기) 상태로 바꾼다. 검증에 실패하면 업로드된 객체를 지워서 버킷에
+     * 고아 객체가 남지 않게 한다.
+     */
+    @Transactional
+    public DormVerificationUploadResponse confirmDormVerificationUpload(
+            Long userId, DormVerificationConfirmRequest request
+    ) {
+        String key = request.key();
+
+        if (!belongsToUser(ImageCategory.DORMITORY_VERIFICATION, userId, key)) {
+            throw new UserException(UserErrorCode.INVALID_DORM_VERIFICATION_IMAGE);
+        }
+
+        Dormitory dormitory = dormitoryRepository.findByUserId(userId).orElse(null);
+        if (dormitory != null && dormitory.isVerificationInProgress()) {
+            imageStorageService.delete(key);
+            throw new UserException(UserErrorCode.DORM_VERIFICATION_ALREADY_IN_PROGRESS);
+        }
+
+        // 용량/형식 기준을 벗어나면 confirmUpload가 ImageException을 던지면서 객체도 함께 지운다.
+        imageStorageService.confirmUpload(key);
+
+        if (dormitory == null) {
+            dormitory = new Dormitory(userId, null, key);
+            dormitoryRepository.save(dormitory);
+        } else {
+            String previousKey = dormitory.getDormVerificationImageKey();
+            dormitory.resubmit(dormitory.getDormitory(), key);
+            // 재제출로 새 key가 반영된 뒤에만 예전(반려됐던) 인증 사진을 지운다 - 반려 사유로
+            // 즉시 삭제하지 않던 사진도, 재제출로 더 이상 참조되지 않게 된 시점엔 정리해야 한다.
+            if (previousKey != null && !previousKey.equals(key)) {
+                imageStorageService.delete(previousKey);
+            }
+        }
+
+        return new DormVerificationUploadResponse(
+                dormitory.getDormStatus().name(),
+                dormitory.getDormVerifiedAt(),
+                dormitory.getDormVerifiedUntil(),
+                imageStorageService.resolveViewUrl(key)
+        );
     }
 
     /**
@@ -307,6 +439,24 @@ public class UserService {
                 existing -> existing.resubmit(dormitory, null),
                 () -> dormitoryRepository.save(new Dormitory(userId, dormitory, null))
         );
+    }
+
+    /**
+     * key가 category/userId/ 아래에 있는(=본인 몫의) 단일 세그먼트 key인지 검증한다. 공용
+     * ImageStorageService.confirmUpload(key)는 소유권을 검증하지 않으므로(용량/형식만 검증),
+     * presign 단계에서 클라이언트가 보낸 key를 confirm 단계에서 그대로 신뢰하지 않기 위해
+     * 여기서 별도로 확인한다 - key에 적힌 id 자체를 권한 근거로 삼지 않기 위함이다.
+     */
+    private boolean belongsToUser(ImageCategory category, Long userId, String key) {
+        if (key == null) {
+            return false;
+        }
+        String expectedPrefix = "%s/%d/".formatted(category.getPrefix(), userId);
+        if (!key.startsWith(expectedPrefix)) {
+            return false;
+        }
+        String remainder = key.substring(expectedPrefix.length());
+        return !remainder.isEmpty() && !remainder.contains("/") && !remainder.contains("..");
     }
 
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {
