@@ -111,4 +111,10 @@ public class Dormitory {
     public void changeDormitory(String dormitory) {
         this.dormitory = dormitory;
     }
+
+    // 인증 사진 업로드(재)신청 가능 여부. 이미 심사 중(PENDING)이거나 이미 승인(APPROVED)된
+    // 상태에서 다시 신청하는 것은 막는다 - REJECTED/EXPIRED/NOT_SUBMITTED는 재신청 가능하다.
+    public boolean isVerificationInProgress() {
+        return dormStatus == DormStatus.PENDING || dormStatus == DormStatus.APPROVED;
+    }
 }

@@ -24,4 +24,5 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
   List<PartyParticipant> findAllByUserIdAndStatus(Long userId, PartyParticipantStatus status);
 
   List<PartyParticipant> findAllByUserIdAndPaymentStatusIsNotNull(Long userId);
+
 }
