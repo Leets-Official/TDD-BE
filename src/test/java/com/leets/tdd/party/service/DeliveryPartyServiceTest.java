@@ -15,6 +15,7 @@ import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
@@ -287,6 +288,52 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ALREADY_COMPLETED);
+    }
+
+    @Test
+    void 모집_마감된_배달팟의_주문을_완료한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.CLOSED);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        OrderDeliveryPartyResponse response = deliveryPartyService.completeOrder(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("ORDERED");
+        assertThat(response.settlementStatus()).isEqualTo("NONE");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.ORDERED);
+    }
+
+    @Test
+    void 파티장이_아니면_주문_완료할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.CLOSED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 2L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ORDER_FORBIDDEN);
+    }
+
+    @Test
+    void 모집_마감된_배달팟만_주문_완료할_수_있다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ORDER_NOT_CLOSED);
+    }
+
+    @Test
+    void 이미_주문_완료된_배달팟은_다시_처리할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.ORDERED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ALREADY_ORDERED);
     }
 
     private DeliveryParty party(Long id, Long creatorId, PartyStatus status) {

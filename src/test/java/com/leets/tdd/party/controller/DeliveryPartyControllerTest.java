@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -42,5 +43,22 @@ class DeliveryPartyControllerTest {
                 .andExpect(jsonPath("$.message").value("배달이 완료되었습니다."))
                 .andExpect(jsonPath("$.data.partyId").value(15))
                 .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
+    void 주문_완료_응답을_반환한다() throws Exception {
+        given(deliveryPartyService.completeOrder(eq(15L), eq(1L)))
+                .willReturn(new OrderDeliveryPartyResponse(15L, "ORDERED", "NONE"));
+
+        mockMvc.perform(patch("/api/v1/parties/15/order")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                new UserPrincipal(1L), null, List.of())))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("주문이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.partyId").value(15))
+                .andExpect(jsonPath("$.data.status").value("ORDERED"))
+                .andExpect(jsonPath("$.data.settlementStatus").value("NONE"));
     }
 }

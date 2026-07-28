@@ -21,7 +21,11 @@ public enum PartyErrorCode implements ErrorCode {
     COMPLETE_FORBIDDEN(HttpStatus.FORBIDDEN, "배달 완료를 처리할 권한이 없습니다."),
     COMPLETE_NOT_ORDERED(HttpStatus.BAD_REQUEST, "주문이 완료된 배달팟만 배달 완료 처리할 수 있습니다."),
     ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "이미 배달이 완료된 배달팟입니다."),
-    COMPLETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달 완료 처리에 실패했습니다.");
+    COMPLETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달 완료 처리에 실패했습니다."),
+    ORDER_FORBIDDEN(HttpStatus.FORBIDDEN, "주문 완료를 처리할 권한이 없습니다."),
+    ORDER_NOT_CLOSED(HttpStatus.BAD_REQUEST, "모집이 마감된 배달팟만 주문 완료할 수 있습니다."),
+    ALREADY_ORDERED(HttpStatus.BAD_REQUEST, "이미 주문이 완료된 배달팟입니다."),
+    ORDER_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "주문 완료 처리에 실패했습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

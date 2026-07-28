@@ -11,6 +11,7 @@ import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -156,5 +157,18 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
+    }
+
+    @PatchMapping("/{partyId}/order")
+    public ResponseEntity<ApiResponse<OrderDeliveryPartyResponse>> completeOrder(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        OrderDeliveryPartyResponse response = deliveryPartyService.completeOrder(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("주문이 완료되었습니다.", response));
     }
 }
