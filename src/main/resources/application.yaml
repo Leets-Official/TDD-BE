@@ -60,6 +60,12 @@ s3:
   presigned-url-validity-seconds: 300 # 5분
   max-file-size-bytes: 10485760 # 10MB
 
+webpush:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY}
+    private-key: ${VAPID_PRIVATE_KEY}
+    subject: ${VAPID_SUBJECT:mailto:admin@tdd.com}
+
 management:
   endpoints:
     web:
