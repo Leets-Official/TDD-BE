@@ -2,6 +2,7 @@ package com.leets.tdd.party.service;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
@@ -14,6 +15,7 @@ import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.JoinDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
@@ -191,6 +193,44 @@ public class DeliveryPartyService {
                 user.getNickname(),
                 user.getProfileImageUrl(),
                 role
+        );
+    }
+
+    @Transactional
+    public JoinDeliveryPartyResponse joinDeliveryParty(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.RECRUITMENT_CLOSED);
+        }
+        if (deliveryParty.getCreatorId().equals(currentUserId)
+                || partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
+                partyId, currentUserId, PartyParticipantStatus.JOINED)) {
+            throw new PartyException(PartyErrorCode.ALREADY_JOINED);
+        }
+
+        long currentParticipants = currentParticipants(partyId);
+        if (currentParticipants >= deliveryParty.getMaxParticipants()) {
+            throw new PartyException(PartyErrorCode.PARTY_FULL);
+        }
+
+        try {
+            partyParticipantRepository.saveAndFlush(new PartyParticipant(
+                    partyId,
+                    currentUserId,
+                    PartyParticipantRole.MEMBER,
+                    PartyParticipantStatus.JOINED,
+                    LocalDateTime.now()
+            ));
+        } catch (DataIntegrityViolationException exception) {
+            throw new PartyException(PartyErrorCode.JOIN_FAILED);
+        }
+
+        return new JoinDeliveryPartyResponse(
+                partyId,
+                currentParticipants + 1,
+                deliveryParty.getMaxParticipants()
         );
     }
 

@@ -11,6 +11,7 @@ import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
+import com.leets.tdd.party.dto.response.JoinDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
@@ -146,6 +147,26 @@ public class DeliveryPartyController {
     ) {
         PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(partyId);
         return ResponseEntity.ok(ApiResponse.success("참여자 목록 조회에 성공했습니다.", response));
+    }
+
+    @Operation(summary = "배달팟 참여", description = "모집 중인 배달팟에 참여합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 참여 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 참여했거나 모집 인원 초과")
+    })
+    @PostMapping("/{partyId}/join")
+    public ResponseEntity<ApiResponse<JoinDeliveryPartyResponse>> joinDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        JoinDeliveryPartyResponse response = deliveryPartyService.joinDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟에 참여했습니다.", response));
     }
 
     @Operation(summary = "배달팟 참여 취소", description = "참여 중인 배달팟에서 나갑니다. 파티장은 참여를 취소할 수 없습니다.")

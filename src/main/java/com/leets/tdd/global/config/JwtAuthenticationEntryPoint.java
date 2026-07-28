@@ -29,6 +29,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     ) throws IOException {
         String requestPath = request.getRequestURI().substring(request.getContextPath().length());
         if (requestPath.matches("/api/v1/(parties|delivery-parties)/me")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/join")
                 || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/participants")
                 || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/complete")
                 || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/order")
