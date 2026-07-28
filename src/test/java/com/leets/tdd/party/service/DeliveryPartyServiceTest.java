@@ -4,33 +4,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
 import com.leets.tdd.party.domain.DeliveryParty;
-import com.leets.tdd.party.domain.PartyParticipant;
-import com.leets.tdd.party.domain.PartyParticipantRole;
+import com.leets.tdd.party.domain.FoodCategory;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
-import com.leets.tdd.party.dto.request.MyPartyStatusFilter;
+import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
-import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
-import com.leets.tdd.party.dto.response.JoinDeliveryPartyResponse;
-import com.leets.tdd.party.exception.PartyErrorCode;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
+import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
+import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
+import com.leets.tdd.party.exception.PartyErrorCode;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
-import com.leets.tdd.user.domain.Dormitory;
-import com.leets.tdd.user.repository.DormitoryRepository;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class DeliveryPartyServiceTest {
@@ -39,10 +42,10 @@ class DeliveryPartyServiceTest {
     private DeliveryPartyRepository deliveryPartyRepository;
 
     @Mock
-    private PartyParticipantRepository partyParticipantRepository;
+    private FoodCategoryRepository foodCategoryRepository;
 
     @Mock
-    private DormitoryRepository dormitoryRepository;
+    private PartyParticipantRepository partyParticipantRepository;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -69,6 +72,7 @@ class DeliveryPartyServiceTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+
 
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
@@ -103,6 +107,84 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class);
     }
 
+    @Test
+    void 참여중인_내_배달팟을_필터와_함께_조회한다() {
+        MyDeliveryPartyProjection projection = org.mockito.Mockito.mock(MyDeliveryPartyProjection.class);
+        LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
+        when(projection.getPartyId()).thenReturn(15L);
+        when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
+        when(projection.getCategory()).thenReturn("치킨");
+        when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMaxParticipants()).thenReturn(4);
+        when(projection.getStatus()).thenReturn("RECRUITING");
+        when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
+        when(projection.getDormitory()).thenReturn("1기숙사");
+        when(partyParticipantRepository.findMyDeliveryParties(
+                1L, "ONGOING", 1L, 2L, null, null
+        )).thenReturn(java.util.List.of(projection));
+
+        MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
+                1L, MyPartyStatusFilter.ONGOING, 1L, 2L, null, null
+        );
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().partyId()).isEqualTo(15L);
+        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+        assertThat(response.parties().getFirst().dormitory()).isEqualTo("1기숙사");
+    }
+
+    @Test
+    void 모집중인_배달팟을_필터와_함께_조회한다() {
+        RecruitingDeliveryPartyProjection projection = org.mockito.Mockito.mock(
+                RecruitingDeliveryPartyProjection.class
+        );
+        LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
+        when(projection.getPartyId()).thenReturn(15L);
+        when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
+        when(projection.getCategory()).thenReturn("치킨");
+        when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMaxParticipants()).thenReturn(4);
+        when(projection.getStatus()).thenReturn("RECRUITING");
+        when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
+        when(projection.getDormitory()).thenReturn("1기숙사");
+        when(deliveryPartyRepository.findRecruitingDeliveryParties(1L, 2L, null, null))
+                .thenReturn(java.util.List.of(projection));
+
+        RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
+                1L, 2L, null, null
+        );
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().status()).isEqualTo("RECRUITING");
+        assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
+        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+    }
+
+    @Test
+    void 배달팟_제목으로_검색에_성공한다() {
+        DeliveryParty party = org.mockito.Mockito.mock(DeliveryParty.class);
+        FoodCategory category = org.mockito.Mockito.mock(FoodCategory.class);
+        when(party.getId()).thenReturn(15L);
+        when(party.getFoodCategoryId()).thenReturn(1L);
+        when(party.getTitle()).thenReturn("BBQ 황금올리브 같이 시켜요");
+        when(party.getMaxParticipants()).thenReturn(4);
+        when(party.getStatus()).thenReturn(PartyStatus.RECRUITING);
+        when(category.getId()).thenReturn(1L);
+        when(category.getName()).thenReturn("치킨");
+        when(deliveryPartyRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc("치킨"))
+                .thenReturn(java.util.List.of(party));
+        when(foodCategoryRepository.findAllById(java.util.List.of(1L)))
+                .thenReturn(java.util.List.of(category));
+        when(partyParticipantRepository.countByPartyIdAndStatus(15L, PartyParticipantStatus.JOINED))
+                .thenReturn(2L);
+
+        DeliveryPartySearchResponse response = deliveryPartyService.searchDeliveryParties("치킨");
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().title()).isEqualTo("BBQ 황금올리브 같이 시켜요");
+        assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
+    }
+
 
     @Test
     void 배달팟_수정_성공() {
@@ -125,6 +207,7 @@ class DeliveryPartyServiceTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+
 
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
@@ -150,7 +233,6 @@ class DeliveryPartyServiceTest {
         // then
         verify(deliveryPartyRepository)
                 .save(deliveryParty);
-
         assertThat(deliveryParty.getTitle())
                 .isEqualTo("변경된 제목");
 
@@ -164,167 +246,138 @@ class DeliveryPartyServiceTest {
                 .isEqualTo(LocalDateTime.of(2026, 7, 25, 20, 0));
     }
 
-
     @Test
-    void 배달팟_삭제_성공() {
+    void 주문_완료된_배달팟의_배달을_완료한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.ORDERED);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
 
-        // given
-        DeliveryParty deliveryParty = new DeliveryParty(
-                1L,
-                1L,
-                "치킨 같이 시켜요",
-                "오늘 저녁 배달팟",
-                2,
-                4,
-                LocalDateTime.of(2026, 7, 24, 19, 30),
-                PartyStatus.RECRUITING,
-                null,
-                SettlementStatus.NONE,
-                null,
-                null,
-                null,
-                LocalDateTime.now(),
-                LocalDateTime.now()
-        );
+        CompleteDeliveryPartyResponse response = deliveryPartyService.completeDelivery(10L, 1L);
 
-        when(deliveryPartyRepository.findById(1L))
-                .thenReturn(Optional.of(deliveryParty));
-
-
-        // when
-        Long result = null;
-
-        try {
-            result = deliveryPartyService.deleteDeliveryParty(1L, 1L);
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
-
-
-        // then
-        assertThat(result)
-                .isEqualTo(1L);
-    }
-
-
-    @Test
-    void 배달팟_참여_성공() {
-        // given
-        DeliveryParty party = recruitingParty(4);
-        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(party));
-        when(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
-                1L, 2L, PartyParticipantStatus.JOINED)).thenReturn(false);
-        when(partyParticipantRepository.countByPartyIdAndStatus(
-                1L, PartyParticipantStatus.JOINED)).thenReturn(1L);
-
-        // when
-        JoinDeliveryPartyResponse response = deliveryPartyService.joinDeliveryParty(1L, 2L);
-
-        // then
-        verify(partyParticipantRepository).saveAndFlush(any(PartyParticipant.class));
-        assertThat(response.partyId()).isEqualTo(1L);
-        assertThat(response.currentParticipants()).isEqualTo(3L);
-        assertThat(response.maxParticipants()).isEqualTo(4);
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("COMPLETED");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
     @Test
-    void 존재하지_않는_배달팟에는_참여할_수_없다() {
-        when(deliveryPartyRepository.findWithLockById(999L)).thenReturn(Optional.empty());
+    void 파티장이_아니면_배달_완료할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.ORDERED)));
 
-        assertPartyError(() -> deliveryPartyService.joinDeliveryParty(999L, 2L),
-                PartyErrorCode.PARTY_NOT_FOUND);
+        assertThatThrownBy(() -> deliveryPartyService.completeDelivery(10L, 2L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.COMPLETE_FORBIDDEN);
     }
 
     @Test
-    void 이미_참여한_배달팟에는_다시_참여할_수_없다() {
-        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(recruitingParty(4)));
-        when(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
-                1L, 2L, PartyParticipantStatus.JOINED)).thenReturn(true);
+    void 주문_완료된_배달팟만_배달_완료할_수_있다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.CLOSED)));
 
-        assertPartyError(() -> deliveryPartyService.joinDeliveryParty(1L, 2L),
-                PartyErrorCode.ALREADY_JOINED);
+        assertThatThrownBy(() -> deliveryPartyService.completeDelivery(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.COMPLETE_NOT_ORDERED);
     }
 
     @Test
-    void 모집중이_아닌_배달팟에는_참여할_수_없다() {
+    void 이미_배달_완료된_배달팟은_다시_처리할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.COMPLETED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeDelivery(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ALREADY_COMPLETED);
+    }
+
+    @Test
+    void 파티장이_모집중인_배달팟을_마감한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("CLOSED");
+        assertThat(deliveryParty.getClosedAt()).isNotNull();
+    }
+
+    @Test
+    void 파티장이_아니면_모집을_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 2L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.CLOSE_FORBIDDEN);
+    }
+
+    @Test
+    void 이미_마감된_배달팟은_다시_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.CLOSED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ALREADY_CLOSED);
+    }
+
+    @Test
+    void 모집_마감된_배달팟의_주문을_완료한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.CLOSED);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        OrderDeliveryPartyResponse response = deliveryPartyService.completeOrder(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("ORDERED");
+        assertThat(response.settlementStatus()).isEqualTo("NONE");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.ORDERED);
+    }
+
+    @Test
+    void 파티장이_아니면_주문_완료할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.CLOSED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 2L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ORDER_FORBIDDEN);
+    }
+
+    @Test
+    void 모집_마감된_배달팟만_주문_완료할_수_있다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ORDER_NOT_CLOSED);
+    }
+
+    @Test
+    void 이미_주문_완료된_배달팟은_다시_처리할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.ORDERED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeOrder(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ALREADY_ORDERED);
+    }
+
+    private DeliveryParty party(Long id, Long creatorId, PartyStatus status) {
         DeliveryParty party = new DeliveryParty(
-                1L, 1L, "치킨", "", 2, 4, LocalDateTime.now().plusHours(1),
-                PartyStatus.CLOSED, null, SettlementStatus.NONE, null, null, null,
-                LocalDateTime.now(), LocalDateTime.now());
-        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(party));
-
-        assertPartyError(() -> deliveryPartyService.joinDeliveryParty(1L, 2L),
-                PartyErrorCode.RECRUITMENT_CLOSED);
-    }
-
-    @Test
-    void 정원이_찬_배달팟에는_참여할_수_없다() {
-        when(deliveryPartyRepository.findWithLockById(1L)).thenReturn(Optional.of(recruitingParty(2)));
-        when(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
-                1L, 2L, PartyParticipantStatus.JOINED)).thenReturn(false);
-        when(partyParticipantRepository.countByPartyIdAndStatus(
-                1L, PartyParticipantStatus.JOINED)).thenReturn(1L);
-
-        assertPartyError(() -> deliveryPartyService.joinDeliveryParty(1L, 2L),
-                PartyErrorCode.PARTY_FULL);
-    }
-
-    @Test
-    void 메인_배달팟_목록은_모집중인_팟만_필터링한다() {
-        DeliveryParty recruitingParty = recruitingParty(4);
-        DeliveryParty closedParty = new DeliveryParty(
-                2L, 1L, "마감된 팟", "", 2, 4, LocalDateTime.now().plusHours(1),
-                PartyStatus.CLOSED, null, SettlementStatus.NONE, null, null, null,
-                LocalDateTime.now(), LocalDateTime.now());
-        when(deliveryPartyRepository.findAllByOrderByCreatedAtDesc())
-                .thenReturn(List.of(recruitingParty, closedParty));
-        when(dormitoryRepository.findAllByUserIdIn(any()))
-                .thenReturn(List.of(new Dormitory(1L, "A동", null), new Dormitory(2L, "A동", null)));
-
-        List<CreateDeliveryPartyResponse> response = deliveryPartyService.getDeliveryParties(
-                1L, "A동", null, null);
-
-        assertThat(response).hasSize(1);
-        assertThat(response.getFirst().getTitle()).isEqualTo("치킨");
-        assertThat(response.getFirst().getStatus()).isEqualTo("RECRUITING");
-    }
-
-    @Test
-    void 내_배달팟_목록은_참여자_기준으로_진행중_상태만_조회한다() {
-        DeliveryParty recruitingParty = recruitingParty(4);
-        DeliveryParty completedParty = new DeliveryParty(
-                2L, 1L, "완료된 팟", "", 2, 4, LocalDateTime.now().plusHours(1),
-                PartyStatus.COMPLETED, null, SettlementStatus.NONE, null, null, null,
-                LocalDateTime.now().minusHours(1), LocalDateTime.now());
-        when(partyParticipantRepository.findAllByUserIdAndStatus(10L, PartyParticipantStatus.JOINED))
-                .thenReturn(List.of(
-                        new PartyParticipant(1L, 10L, PartyParticipantRole.MEMBER,
-                                PartyParticipantStatus.JOINED, LocalDateTime.now()),
-                        new PartyParticipant(2L, 10L, PartyParticipantRole.MEMBER,
-                                PartyParticipantStatus.JOINED, LocalDateTime.now())
-                ));
-        when(deliveryPartyRepository.findAllById(any())).thenReturn(List.of(recruitingParty, completedParty));
-        when(dormitoryRepository.findAllByUserIdIn(any()))
-                .thenReturn(List.of(new Dormitory(1L, "A동", null), new Dormitory(2L, "A동", null)));
-
-        List<CreateDeliveryPartyResponse> response = deliveryPartyService.getMyDeliveryParties(
-                10L, null, null, null, null, MyPartyStatusFilter.IN_PROGRESS);
-
-        assertThat(response).hasSize(1);
-        assertThat(response.getFirst().getStatus()).isEqualTo("RECRUITING");
-    }
-
-    private DeliveryParty recruitingParty(int maxParticipants) {
-        return new DeliveryParty(
-                1L, 1L, "치킨", "", 2, maxParticipants, LocalDateTime.now().plusHours(1),
-                PartyStatus.RECRUITING, null, SettlementStatus.NONE, null, null, null,
-                LocalDateTime.now(), LocalDateTime.now());
-    }
-
-    private void assertPartyError(Runnable action, PartyErrorCode expectedErrorCode) {
-        assertThatThrownBy(action::run)
-                .isInstanceOfSatisfying(PartyException.class,
-                        exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedErrorCode));
+                creatorId, 1L, "치킨 같이 시켜요", "오늘 저녁 배달팟", 2, 4,
+                LocalDateTime.of(2026, 7, 24, 19, 30), status, null,
+                SettlementStatus.NONE, null, null, null, LocalDateTime.now(), LocalDateTime.now()
+        );
+        ReflectionTestUtils.setField(party, "id", id);
+        return party;
     }
 }

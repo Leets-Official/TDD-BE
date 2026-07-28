@@ -27,18 +27,13 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
-        if ("DELETE".equals(request.getMethod())
-                && request.getRequestURI().matches("/api/v1/(parties|delivery-parties)/[^/]+")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding("UTF-8");
-            response.getWriter().write(
-                    objectMapper.writeValueAsString(ApiResponse.fail("로그인이 필요합니다."))
-            );
-            return;
-        }
-
-        if (request.getRequestURI().matches("/api/v1/(parties|delivery-parties)/[^/]+/join")) {
+        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+        if (requestPath.matches("/api/v1/(parties|delivery-parties)/me")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/join")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/participants")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/complete")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/order")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/close")) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");
