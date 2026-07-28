@@ -235,6 +235,22 @@ public class DeliveryPartyService {
     }
 
     @Transactional
+    public Long deleteDeliveryParty(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.DELETE_FORBIDDEN);
+        }
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.CANCEL_NOT_RECRUITING);
+        }
+
+        deliveryParty.cancel();
+        return partyId;
+    }
+
+    @Transactional
     public LeaveDeliveryPartyResponse leaveDeliveryParty(Long partyId, Long currentUserId) {
         DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));

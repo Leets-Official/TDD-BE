@@ -14,6 +14,8 @@ public enum PartyErrorCode implements ErrorCode {
     RECRUITMENT_CLOSED(HttpStatus.BAD_REQUEST, "모집이 종료된 배달팟입니다."),
     PARTY_FULL(HttpStatus.CONFLICT, "모집 인원이 모두 찼습니다."),
     JOIN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달팟 참여에 실패했습니다."),
+    DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "배달팟을 삭제할 권한이 없습니다."),
+    CANCEL_NOT_RECRUITING(HttpStatus.BAD_REQUEST, "현재 상태에서는 배달팟을 삭제할 수 없습니다."),
     NOT_PARTICIPANT(HttpStatus.BAD_REQUEST, "참여 중인 배달팟이 아닙니다."),
     LEAVE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "현재 상태에서는 참여를 취소할 수 없습니다."),
     LEAVE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달팟 참여 취소에 실패했습니다."),

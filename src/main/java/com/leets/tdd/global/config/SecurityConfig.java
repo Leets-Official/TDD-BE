@@ -48,6 +48,11 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/parties/*",
+                                "/api/v1/delivery-parties/*"
+                        ).authenticated()
+                        .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/parties/*/join",
                                 "/api/v1/delivery-parties/*/join"

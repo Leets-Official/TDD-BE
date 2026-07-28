@@ -135,6 +135,11 @@ public class DeliveryParty {
     this.settlementStatus = SettlementStatus.CANCELED;
   }
 
+  public void cancel() {
+    this.status = PartyStatus.CANCELED;
+    this.updatedAt = LocalDateTime.now();
+  }
+
   public void completeDelivery() {
     this.status = PartyStatus.COMPLETED;
     this.updatedAt = LocalDateTime.now();
