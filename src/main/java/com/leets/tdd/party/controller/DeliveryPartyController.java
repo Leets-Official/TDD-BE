@@ -13,6 +13,7 @@ import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -127,6 +128,22 @@ public class DeliveryPartyController {
                 deliveryPartyService.getDeliveryPartyDetail(partyId);
 
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "배달팟 참여자 목록 조회", description = "배달팟에 참여 중인 사용자 목록을 조회합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "참여자 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+    })
+    @GetMapping("/{partyId}/participants")
+    public ResponseEntity<ApiResponse<PartyParticipantListResponse>> getPartyParticipants(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(partyId);
+        return ResponseEntity.ok(ApiResponse.success("참여자 목록 조회에 성공했습니다.", response));
     }
 
 
