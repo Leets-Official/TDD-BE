@@ -1,18 +1,19 @@
 package com.leets.tdd.party.controller;
 
 import java.time.LocalDateTime;
-import java.util.List;
-
+import com.leets.tdd.global.common.ApiResponse;
+import com.leets.tdd.global.jwt.UserPrincipal;
+import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
-
-import com.leets.tdd.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -69,6 +70,31 @@ public class DeliveryPartyController {
                 categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
         );
         return ResponseEntity.ok(ApiResponse.success("배달팟 목록 조회에 성공했습니다.", response));
+    }
+
+    @Operation(
+            summary = "내 배달팟 목록 조회",
+            description = "참여 중인 배달팟을 상태, 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "내 배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "내 배달팟 목록 조회 실패")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MyDeliveryPartyListResponse>> getMyDeliveryParties(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(defaultValue = "ALL") MyPartyStatusFilter status,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) LocalDateTime orderExpectedFrom,
+            @RequestParam(required = false) LocalDateTime orderExpectedTo
+    ) {
+        MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
+                currentUser.userId(), status, categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+        );
+        return ResponseEntity.ok(ApiResponse.success("내 배달팟 목록 조회에 성공했습니다.", response));
     }
 
 
