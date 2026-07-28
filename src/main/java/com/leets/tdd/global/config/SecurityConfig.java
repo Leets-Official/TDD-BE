@@ -47,6 +47,11 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/parties/*/complete",
+                                "/api/v1/delivery-parties/*/complete"
+                        ).authenticated()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/parties",

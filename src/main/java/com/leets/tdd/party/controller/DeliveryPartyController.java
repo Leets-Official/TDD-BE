@@ -6,6 +6,7 @@ import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
@@ -22,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -141,5 +143,18 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{partyId}/complete")
+    public ResponseEntity<ApiResponse<CompleteDeliveryPartyResponse>> completeDelivery(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CompleteDeliveryPartyResponse response = deliveryPartyService.completeDelivery(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
     }
 }
