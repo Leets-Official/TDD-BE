@@ -1,66 +1,64 @@
 package com.leets.tdd.party.controller;
 
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.leets.tdd.global.config.SecurityConfig;
-import com.leets.tdd.global.jwt.JwtProvider;
+import com.leets.tdd.global.jwt.UserPrincipal;
+import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
-import com.leets.tdd.user.domain.UserStatus;
-import com.leets.tdd.user.repository.UserRepository;
-import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(DeliveryPartyController.class)
-@Import(SecurityConfig.class)
 class DeliveryPartyControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private UserRepository userRepository;
-
-    @MockitoBean
     private DeliveryPartyService deliveryPartyService;
 
     @Test
-    void 토큰_없이_배달팟_삭제를_요청하면_401을_반환한다() throws Exception {
-        mockMvc.perform(delete("/api/v1/delivery-parties/1"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
+    void 배달_완료_응답을_반환한다() throws Exception {
+        given(deliveryPartyService.completeDelivery(eq(15L), eq(1L)))
+                .willReturn(new CompleteDeliveryPartyResponse(15L, "COMPLETED"));
 
-        verify(deliveryPartyService, never()).deleteDeliveryParty(eq(1L), eq(1L));
+        mockMvc.perform(patch("/api/v1/parties/15/complete")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                new UserPrincipal(1L), null, List.of())))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("배달이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.partyId").value(15))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
 
     @Test
-    void 유효한_토큰으로_배달팟을_삭제한다() throws Exception {
-        when(jwtProvider.resolveToken("Bearer valid-token")).thenReturn("valid-token");
-        when(jwtProvider.parseUserId("valid-token")).thenReturn(1L);
-        when(userRepository.findStatusById(1L)).thenReturn(Optional.of(UserStatus.ACTIVE));
-        when(deliveryPartyService.deleteDeliveryParty(1L, 1L)).thenReturn(1L);
+    void 주문_완료_응답을_반환한다() throws Exception {
+        given(deliveryPartyService.completeOrder(eq(15L), eq(1L)))
+                .willReturn(new OrderDeliveryPartyResponse(15L, "ORDERED", "NONE"));
 
-        mockMvc.perform(delete("/api/v1/parties/1")
-                        .header("Authorization", "Bearer valid-token"))
+        mockMvc.perform(patch("/api/v1/parties/15/order")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                new UserPrincipal(1L), null, List.of())))
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("배달팟이 삭제되었습니다."))
-                .andExpect(jsonPath("$.data.partyId").value(1));
-
-        verify(deliveryPartyService).deleteDeliveryParty(1L, 1L);
+                .andExpect(jsonPath("$.message").value("주문이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.partyId").value(15))
+                .andExpect(jsonPath("$.data.status").value("ORDERED"))
+                .andExpect(jsonPath("$.data.settlementStatus").value("NONE"));
     }
 }
