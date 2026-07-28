@@ -224,11 +224,28 @@ public class User {
         this.pushEnabled = pushEnabled;
     }
 
+    // Web Push 구독 등록/갱신에 사용(브라우저 PushManager.subscribe()가 돌려주는
+    // {endpoint, keys: {p256dh, auth}}를 그대로 저장). pushEnabled는 건드리지 않는다 -
+    // on/off는 updatePushEnabled로 별도 관리되는 관심사라, 구독 등록 자체가 알림을
+    // 자동으로 켜거나 끄지는 않는다(가입 시 기본값 true가 이미 적용되어 있음).
+    public void updatePushSubscription(String pushEndpoint, String pushP256dhKey, String pushAuthKey) {
+        this.pushEndpoint = pushEndpoint;
+        this.pushP256dhKey = pushP256dhKey;
+        this.pushAuthKey = pushAuthKey;
+    }
+
     // 마이페이지 > 프로필 수정에서 닉네임/프로필 사진을 갱신한다. 중복 검사는 서비스 계층에서
     // 이미 끝낸 값이 들어온다고 가정한다.
     public void updateProfile(String nickname, String profileImageUrl) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
+    }
+
+    // 프로필 이미지 업로드 확정(confirm) 시 이미지만 갱신한다. 컬럼/필드 이름은 profileImageUrl이지만
+    // 실제로 저장하는 값은 S3 객체 key다(공개 버킷 + base URL로 조립해서 응답한다 - 컬럼명 정리는
+    // MVP 이후 별도 PR로 예정돼 있어 여기서는 안 건드린다). 닉네임은 이 메서드에서 건드리지 않는다.
+    public void updateProfileImageKey(String profileImageKey) {
+        this.profileImageUrl = profileImageKey;
     }
 
     // 로그인 시도 제한 확인용(5분 내 3회 실패 시 15분 차단).

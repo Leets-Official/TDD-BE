@@ -2,7 +2,15 @@ package com.leets.tdd.user.controller;
 
 import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.global.common.ApiResponse;
+import com.leets.tdd.user.dto.DormVerificationConfirmRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignRequest;
+import com.leets.tdd.user.dto.DormVerificationPresignResponse;
+import com.leets.tdd.user.dto.DormVerificationUploadResponse;
 import com.leets.tdd.user.dto.MyPageResponse;
+import com.leets.tdd.user.dto.ProfileImageConfirmRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignRequest;
+import com.leets.tdd.user.dto.ProfileImagePresignResponse;
+import com.leets.tdd.user.dto.ProfileImageUploadResponse;
 import com.leets.tdd.user.dto.ProfileRegistrationRequest;
 import com.leets.tdd.user.dto.ProfileRegistrationResponse;
 import com.leets.tdd.user.dto.ChangePasswordRequest;
@@ -10,6 +18,7 @@ import com.leets.tdd.user.dto.ProfileUpdateRequest;
 import com.leets.tdd.user.dto.ProfileUpdateResponse;
 import com.leets.tdd.user.dto.PushSettingRequest;
 import com.leets.tdd.user.dto.PushSettingResponse;
+import com.leets.tdd.user.dto.PushSubscriptionRequest;
 import com.leets.tdd.user.dto.WithdrawalRequest;
 import com.leets.tdd.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -65,9 +74,10 @@ public class UserController {
 
     @Operation(
             summary = "프로필 수정",
-            description = "닉네임/기숙사 동/프로필 사진을 수정한다. 닉네임과 기숙사 동은 필수이고, "
-                    + "profileImageUrl을 null로 보내면 프로필 사진을 해제한다. "
-                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+            description = "닉네임/기숙사 동을 수정한다. 닉네임과 기숙사 동은 필수이고, "
+                    + "profileImageUrl은 빈 값(삭제)만 허용한다 - 프로필 사진을 새로 설정하는 건 "
+                    + "이 API가 아니라 /me/profile-image/presign, /me/profile-image/confirm(업로드 "
+                    + "전용 API)으로만 가능하다. Authorization 헤더에 access token(Bearer)이 필요하다."
     )
     @SecurityRequirement(name = "bearerAuth")
     @PatchMapping("/me/profile")
@@ -77,6 +87,78 @@ public class UserController {
     ) {
         ProfileUpdateResponse response = userService.updateProfile(userPrincipal.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("계정 수정에 성공하였습니다.", response));
+    }
+
+    @Operation(
+            summary = "프로필 사진 업로드 1단계(업로드 URL 발급)",
+            description = "프로필 사진을 올릴 Presigned PUT URL과 key를 발급한다(공개 버킷). 응답으로 받은 "
+                    + "uploadUrl로 브라우저가 S3에 직접 PUT한 뒤, 그 key로 확정(confirm) API를 호출해야 "
+                    + "프로필 사진에 반영된다. 허용 형식은 JPEG/PNG/WEBP다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/profile-image/presign")
+    public ResponseEntity<ApiResponse<ProfileImagePresignResponse>> presignProfileImageUpload(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ProfileImagePresignRequest request
+    ) {
+        ProfileImagePresignResponse response =
+                userService.presignProfileImageUpload(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("업로드 URL이 발급되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "프로필 사진 업로드 2단계(업로드 확정)",
+            description = "브라우저가 S3에 직접 업로드를 마친 뒤 호출한다. 서버가 실제로 올라간 객체의 "
+                    + "용량/형식을 확인(HeadObject)하고, 기준을 벗어나면 객체를 지우고 실패 처리한다. "
+                    + "통과하면 그때 프로필 사진에 반영되고, 응답에는 만료 없는 완성된 공개 URL이 담긴다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/profile-image/confirm")
+    public ResponseEntity<ApiResponse<ProfileImageUploadResponse>> confirmProfileImageUpload(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ProfileImageConfirmRequest request
+    ) {
+        ProfileImageUploadResponse response =
+                userService.confirmProfileImageUpload(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("프로필 사진이 변경되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "기숙사 인증하기 1단계(업로드 URL 발급)",
+            description = "인증 사진을 올릴 Presigned PUT URL과 key를 발급한다. 응답으로 받은 uploadUrl로 "
+                    + "브라우저가 S3에 직접 PUT한 뒤, 그 key로 확정(confirm) API를 호출해야 인증 신청이 "
+                    + "완료된다. 허용 형식은 JPEG/PNG/WEBP이고, 이미 심사 중이거나 승인된 상태면 발급 자체가 "
+                    + "거부된다. Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/dormitory-verification/presign")
+    public ResponseEntity<ApiResponse<DormVerificationPresignResponse>> presignDormVerificationUpload(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody DormVerificationPresignRequest request
+    ) {
+        DormVerificationPresignResponse response =
+                userService.presignDormVerificationUpload(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("업로드 URL이 발급되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "기숙사 인증하기 2단계(업로드 확정)",
+            description = "브라우저가 S3에 직접 업로드를 마친 뒤 호출한다. 서버가 실제로 올라간 객체의 "
+                    + "용량/형식을 확인(HeadObject)하고, 기준을 벗어나면 객체를 지우고 실패 처리한다. "
+                    + "통과하면 그때 심사 대기(PENDING) 상태로 반영된다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/dormitory-verification/confirm")
+    public ResponseEntity<ApiResponse<DormVerificationUploadResponse>> confirmDormVerificationUpload(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody DormVerificationConfirmRequest request
+    ) {
+        DormVerificationUploadResponse response =
+                userService.confirmDormVerificationUpload(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("기숙사 인증 신청이 완료되었습니다.", response));
     }
 
     @Operation(
@@ -93,6 +175,23 @@ public class UserController {
     ) {
         PushSettingResponse response = userService.updatePushSetting(userPrincipal.userId(), request);
         return ResponseEntity.ok(ApiResponse.success("알림 설정이 변경되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "알림 구독 등록",
+            description = "브라우저 Web Push 구독 정보(endpoint/p256dhKey/authKey)를 저장한다. "
+                    + "이미 등록된 구독이 있으면 최신 값으로 덮어쓴다(기기 교체/재설치 시 재구독 케이스). "
+                    + "알림 on/off 자체는 이 API가 아니라 /me/push-setting으로 따로 관리한다. "
+                    + "Authorization 헤더에 access token(Bearer)이 필요하다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/me/push-subscription")
+    public ResponseEntity<ApiResponse<Void>> registerPushSubscription(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody PushSubscriptionRequest request
+    ) {
+        userService.registerPushSubscription(userPrincipal.userId(), request);
+        return ResponseEntity.ok(ApiResponse.success("구독 정보가 저장되었습니다."));
     }
 
     @Operation(
