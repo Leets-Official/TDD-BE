@@ -13,6 +13,7 @@ import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
+import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
@@ -29,6 +30,7 @@ import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -189,6 +191,44 @@ public class DeliveryPartyService {
                 user.getNickname(),
                 user.getProfileImageUrl(),
                 role
+        );
+    }
+
+    @Transactional
+    public LeaveDeliveryPartyResponse leaveDeliveryParty(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.HOST_CANNOT_LEAVE);
+        }
+
+        PartyParticipant participant = partyParticipantRepository.findByPartyIdAndUserId(partyId, currentUserId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.NOT_PARTICIPANT));
+        if (!participant.isJoined()) {
+            throw new PartyException(PartyErrorCode.NOT_PARTICIPANT);
+        }
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.LEAVE_NOT_ALLOWED);
+        }
+
+        participant.cancel(LocalDateTime.now());
+        try {
+            partyParticipantRepository.saveAndFlush(participant);
+        } catch (DataIntegrityViolationException exception) {
+            throw new PartyException(PartyErrorCode.LEAVE_FAILED);
+        }
+
+        return new LeaveDeliveryPartyResponse(
+                partyId,
+                currentParticipants(partyId),
+                deliveryParty.getMaxParticipants()
+        );
+    }
+
+    private long currentParticipants(Long partyId) {
+        return 1 + partyParticipantRepository.countByPartyIdAndStatus(
+                partyId, PartyParticipantStatus.JOINED
         );
     }
 

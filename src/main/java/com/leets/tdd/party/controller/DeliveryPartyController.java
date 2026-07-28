@@ -11,6 +11,7 @@ import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
+import com.leets.tdd.party.dto.response.LeaveDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
@@ -25,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -144,6 +146,26 @@ public class DeliveryPartyController {
     ) {
         PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(partyId);
         return ResponseEntity.ok(ApiResponse.success("참여자 목록 조회에 성공했습니다.", response));
+    }
+
+    @Operation(summary = "배달팟 참여 취소", description = "참여 중인 배달팟에서 나갑니다. 파티장은 참여를 취소할 수 없습니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 참여 취소 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장 참여 취소 불가"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+    })
+    @DeleteMapping("/{partyId}/participants")
+    public ResponseEntity<ApiResponse<LeaveDeliveryPartyResponse>> leaveDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        LeaveDeliveryPartyResponse response = deliveryPartyService.leaveDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟 참여가 취소되었습니다.", response));
     }
 
 

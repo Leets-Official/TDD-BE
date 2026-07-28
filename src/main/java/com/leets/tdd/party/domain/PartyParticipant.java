@@ -105,4 +105,12 @@ public class PartyParticipant {
   public boolean isJoined() {
     return status == PartyParticipantStatus.JOINED;
   }
+
+  public void cancel(LocalDateTime canceledAt) {
+    if (!isJoined()) {
+      throw new IllegalStateException("참여 중인 상태가 아닙니다.");
+    }
+    this.status = PartyParticipantStatus.CANCELED;
+    this.canceledAt = canceledAt;
+  }
 }
