@@ -32,6 +32,10 @@ spring:
           auth: true
           starttls:
             enable: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 # access/refresh 토큰 발급용. 기본값(fallback)을 두지 않는다 - JWT_SECRET이 없으면
 # 기동 자체가 실패해야 "모두가 아는 임시 시크릿"으로 운영에 배포되는 사고를 막을 수 있다.
@@ -55,6 +59,12 @@ s3:
   region: ${AWS_REGION}
   presigned-url-validity-seconds: 300 # 5분
   max-file-size-bytes: 10485760 # 10MB
+
+webpush:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY}
+    private-key: ${VAPID_PRIVATE_KEY}
+    subject: ${VAPID_SUBJECT:mailto:admin@tdd.com}
 
 management:
   endpoints:

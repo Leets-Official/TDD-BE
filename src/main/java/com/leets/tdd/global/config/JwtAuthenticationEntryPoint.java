@@ -27,7 +27,10 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
-        if (request.getRequestURI().matches("/api/v1/parties/[^/]+/order")) {
+        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+        if (requestPath.matches("/api/v1/(parties|delivery-parties)/me")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/complete")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/order")) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");

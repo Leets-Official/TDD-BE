@@ -22,3 +22,12 @@ s3:
   region: ap-northeast-2
   presigned-url-validity-seconds: 300
   max-file-size-bytes: 10485760
+
+webpush:
+  vapid:
+    # PushService 생성자는 이 값들을 실제 P-256 키(공개키: Base64URL 65바이트 uncompressed point,
+    # 개인키: Base64URL 32바이트 스칼라)로 디코딩한다. 형식이 어긋나면 컨텍스트 로딩 자체가 실패.
+    # 아래는 테스트 전용으로 로컬에서 생성한 더미 키페어이고, 실제 발송은 어떤 테스트에서도 하지 않는다.
+    public-key: BGMyjLxMaFUX5LadTKuhHTM-y2-Ku-m5LnkMX17rgP39vawWMWBl78JIZpv8Tm7VITonkLS9n4iesQIVvi0dxA4
+    private-key: 5JN8lWinNgLSvCWFFInV13Eoy_zDjsYSaS_QwUpYNJs
+    subject: mailto:test@test.com
