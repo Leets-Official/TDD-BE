@@ -1,13 +1,18 @@
 package com.leets.tdd.party.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 
+import com.leets.tdd.global.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -19,11 +24,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/api/v1/delivery-parties")
+@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
 @RequiredArgsConstructor
 public class DeliveryPartyController {
 
@@ -44,14 +50,25 @@ public class DeliveryPartyController {
     }
 
 
-    // 배달팟 목록 조회 API
+    @Operation(
+            summary = "메인 배달팟 목록 조회",
+            description = "모집 중인 배달팟을 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 목록 조회 실패")
+    })
     @GetMapping
-    public ResponseEntity<List<CreateDeliveryPartyResponse>> getDeliveryParties() {
-
-        List<CreateDeliveryPartyResponse> response =
-                deliveryPartyService.getDeliveryParties();
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<RecruitingDeliveryPartyListResponse>> getDeliveryParties(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) LocalDateTime orderExpectedFrom,
+            @RequestParam(required = false) LocalDateTime orderExpectedTo
+    ) {
+        RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
+                categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟 목록 조회에 성공했습니다.", response));
     }
 
 
