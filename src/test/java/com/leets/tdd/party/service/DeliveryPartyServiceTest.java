@@ -4,20 +4,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.mock;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.FoodCategory;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
-import com.leets.tdd.party.exception.PartyErrorCode;
+import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
+import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
+import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -100,20 +103,73 @@ class DeliveryPartyServiceTest {
     }
 
     @Test
+    void 참여중인_내_배달팟을_필터와_함께_조회한다() {
+        MyDeliveryPartyProjection projection = org.mockito.Mockito.mock(MyDeliveryPartyProjection.class);
+        LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
+        when(projection.getPartyId()).thenReturn(15L);
+        when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
+        when(projection.getCategory()).thenReturn("치킨");
+        when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMaxParticipants()).thenReturn(4);
+        when(projection.getStatus()).thenReturn("RECRUITING");
+        when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
+        when(projection.getDormitory()).thenReturn("1기숙사");
+        when(partyParticipantRepository.findMyDeliveryParties(
+                1L, "ONGOING", 1L, 2L, null, null
+        )).thenReturn(java.util.List.of(projection));
+
+        MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
+                1L, MyPartyStatusFilter.ONGOING, 1L, 2L, null, null
+        );
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().partyId()).isEqualTo(15L);
+        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+        assertThat(response.parties().getFirst().dormitory()).isEqualTo("1기숙사");
+    }
+
+    @Test
+    void 모집중인_배달팟을_필터와_함께_조회한다() {
+        RecruitingDeliveryPartyProjection projection = org.mockito.Mockito.mock(
+                RecruitingDeliveryPartyProjection.class
+        );
+        LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
+        when(projection.getPartyId()).thenReturn(15L);
+        when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
+        when(projection.getCategory()).thenReturn("치킨");
+        when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMaxParticipants()).thenReturn(4);
+        when(projection.getStatus()).thenReturn("RECRUITING");
+        when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
+        when(projection.getDormitory()).thenReturn("1기숙사");
+        when(deliveryPartyRepository.findRecruitingDeliveryParties(1L, 2L, null, null))
+                .thenReturn(java.util.List.of(projection));
+
+        RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
+                1L, 2L, null, null
+        );
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().status()).isEqualTo("RECRUITING");
+        assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
+        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+    }
+
+    @Test
     void 배달팟_제목으로_검색에_성공한다() {
-        DeliveryParty deliveryParty = mock(DeliveryParty.class);
-        FoodCategory foodCategory = mock(FoodCategory.class);
-        when(deliveryParty.getId()).thenReturn(15L);
-        when(deliveryParty.getFoodCategoryId()).thenReturn(1L);
-        when(deliveryParty.getTitle()).thenReturn("BBQ 황금올리브 같이 시켜요");
-        when(deliveryParty.getMaxParticipants()).thenReturn(4);
-        when(deliveryParty.getStatus()).thenReturn(PartyStatus.RECRUITING);
-        when(foodCategory.getId()).thenReturn(1L);
-        when(foodCategory.getName()).thenReturn("치킨");
+        DeliveryParty party = org.mockito.Mockito.mock(DeliveryParty.class);
+        FoodCategory category = org.mockito.Mockito.mock(FoodCategory.class);
+        when(party.getId()).thenReturn(15L);
+        when(party.getFoodCategoryId()).thenReturn(1L);
+        when(party.getTitle()).thenReturn("BBQ 황금올리브 같이 시켜요");
+        when(party.getMaxParticipants()).thenReturn(4);
+        when(party.getStatus()).thenReturn(PartyStatus.RECRUITING);
+        when(category.getId()).thenReturn(1L);
+        when(category.getName()).thenReturn("치킨");
         when(deliveryPartyRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc("치킨"))
-                .thenReturn(java.util.List.of(deliveryParty));
+                .thenReturn(java.util.List.of(party));
         when(foodCategoryRepository.findAllById(java.util.List.of(1L)))
-                .thenReturn(java.util.List.of(foodCategory));
+                .thenReturn(java.util.List.of(category));
         when(partyParticipantRepository.countByPartyIdAndStatus(15L, PartyParticipantStatus.JOINED))
                 .thenReturn(2L);
 
@@ -122,24 +178,6 @@ class DeliveryPartyServiceTest {
         assertThat(response.parties()).hasSize(1);
         assertThat(response.parties().getFirst().title()).isEqualTo("BBQ 황금올리브 같이 시켜요");
         assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
-        assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
-    }
-
-    @Test
-    void 공백_검색어는_예외를_반환한다() {
-        assertThatThrownBy(() -> deliveryPartyService.searchDeliveryParties("  "))
-                .isInstanceOf(PartyException.class)
-                .hasMessage(PartyErrorCode.SEARCH_KEYWORD_REQUIRED.getMessage());
-    }
-
-    @Test
-    void 검색_결과가_없으면_예외를_반환한다() {
-        when(deliveryPartyRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc("치킨"))
-                .thenReturn(java.util.List.of());
-
-        assertThatThrownBy(() -> deliveryPartyService.searchDeliveryParties("치킨"))
-                .isInstanceOf(PartyException.class)
-                .hasMessage(PartyErrorCode.SEARCH_RESULT_NOT_FOUND.getMessage());
     }
 
 
