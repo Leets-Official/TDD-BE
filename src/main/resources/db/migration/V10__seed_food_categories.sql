@@ -9,5 +9,4 @@ INSERT INTO food_categories (id, name) VALUES
     (8, '피자'),
     (9, '양식'),
     (10, '족발,보쌈'),
-    (11, '기타')
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+    (11, '기타');
