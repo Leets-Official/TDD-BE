@@ -1,20 +1,24 @@
 package com.leets.tdd.party.controller;
 
-import java.util.List;
-
-import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
-import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
-import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
-import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
-import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
-import com.leets.tdd.party.service.DeliveryPartyService;
+import java.time.LocalDateTime;
 import com.leets.tdd.global.common.ApiResponse;
 import com.leets.tdd.global.jwt.UserPrincipal;
-
+import com.leets.tdd.party.dto.MyPartyStatusFilter;
+import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
+import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
+import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
+import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
+import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
+import com.leets.tdd.party.service.DeliveryPartyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -22,10 +26,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 
@@ -51,14 +57,64 @@ public class DeliveryPartyController {
     }
 
 
-    // 배달팟 목록 조회 API
+    @Operation(
+            summary = "메인 배달팟 목록 조회",
+            description = "모집 중인 배달팟을 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 목록 조회 실패")
+    })
     @GetMapping
-    public ResponseEntity<List<CreateDeliveryPartyResponse>> getDeliveryParties() {
+    public ResponseEntity<ApiResponse<RecruitingDeliveryPartyListResponse>> getDeliveryParties(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) LocalDateTime orderExpectedFrom,
+            @RequestParam(required = false) LocalDateTime orderExpectedTo
+    ) {
+        RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
+                categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟 목록 조회에 성공했습니다.", response));
+    }
 
-        List<CreateDeliveryPartyResponse> response =
-                deliveryPartyService.getDeliveryParties();
+    @Operation(
+            summary = "내 배달팟 목록 조회",
+            description = "참여 중인 배달팟을 상태, 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "내 배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "내 배달팟 목록 조회 실패")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MyDeliveryPartyListResponse>> getMyDeliveryParties(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(defaultValue = "ALL") MyPartyStatusFilter status,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) LocalDateTime orderExpectedFrom,
+            @RequestParam(required = false) LocalDateTime orderExpectedTo
+    ) {
+        MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
+                currentUser.userId(), status, categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+        );
+        return ResponseEntity.ok(ApiResponse.success("내 배달팟 목록 조회에 성공했습니다.", response));
+    }
 
-        return ResponseEntity.ok(response);
+    @Operation(summary = "배달팟 검색", description = "검색어가 포함된 배달팟 제목을 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 검색 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "검색어 미입력"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "검색 결과 없음")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<DeliveryPartySearchResponse>> searchDeliveryParties(
+            @RequestParam(required = false) String keyword
+    ) {
+        DeliveryPartySearchResponse response = deliveryPartyService.searchDeliveryParties(keyword);
+        return ResponseEntity.ok(ApiResponse.success("배달팟 검색에 성공했습니다.", response));
     }
 
 
@@ -74,28 +130,14 @@ public class DeliveryPartyController {
         return ResponseEntity.ok(response);
     }
 
-
-    // 배달팟 참여자 목록 조회 API
-    @GetMapping("/{partyId}/participants")
-    @Operation(
-            summary = "배달팟 참여자 목록 조회",
-            description = "로그인한 사용자가 배달팟의 참여자 목록을 조회합니다."
-    )
+    @Operation(summary = "배달팟 참여자 목록 조회", description = "배달팟에 참여 중인 사용자 목록을 조회합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200", description = "참여자 목록 조회 성공"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "401", description = "로그인 필요"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404", description = "배달팟을 찾을 수 없음"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "500", description = "참여자 목록 조회 실패"
-            )
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "참여자 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
     })
+    @GetMapping("/{partyId}/participants")
     public ResponseEntity<ApiResponse<PartyParticipantListResponse>> getPartyParticipants(
             @PathVariable Long partyId,
             @AuthenticationPrincipal UserPrincipal currentUser
@@ -120,5 +162,43 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{partyId}/complete")
+    public ResponseEntity<ApiResponse<CompleteDeliveryPartyResponse>> completeDelivery(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CompleteDeliveryPartyResponse response = deliveryPartyService.completeDelivery(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
+    }
+
+    @PatchMapping("/{partyId}/close")
+    public ResponseEntity<ApiResponse<CloseDeliveryPartyResponse>> closeDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟 모집이 마감되었습니다.", response));
+    }
+
+    @PatchMapping("/{partyId}/order")
+    public ResponseEntity<ApiResponse<OrderDeliveryPartyResponse>> completeOrder(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        OrderDeliveryPartyResponse response = deliveryPartyService.completeOrder(
+                partyId,
+                currentUser.userId()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("주문이 완료되었습니다.", response));
     }
 }
