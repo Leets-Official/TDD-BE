@@ -12,6 +12,7 @@ import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
@@ -288,6 +289,40 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ALREADY_COMPLETED);
+    }
+
+    @Test
+    void 파티장이_모집중인_배달팟을_마감한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("CLOSED");
+        assertThat(deliveryParty.getClosedAt()).isNotNull();
+    }
+
+    @Test
+    void 파티장이_아니면_모집을_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 2L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.CLOSE_FORBIDDEN);
+    }
+
+    @Test
+    void 이미_마감된_배달팟은_다시_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.CLOSED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.ALREADY_CLOSED);
     }
 
     @Test

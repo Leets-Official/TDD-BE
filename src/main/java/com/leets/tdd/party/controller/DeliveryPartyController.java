@@ -7,6 +7,7 @@ import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
@@ -157,6 +158,18 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
+    }
+
+    @PatchMapping("/{partyId}/close")
+    public ResponseEntity<ApiResponse<CloseDeliveryPartyResponse>> closeDeliveryParty(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(
+                partyId,
+                currentUser.userId()
+        );
+        return ResponseEntity.ok(ApiResponse.success("배달팟 모집이 마감되었습니다.", response));
     }
 
     @PatchMapping("/{partyId}/order")

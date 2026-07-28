@@ -48,9 +48,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/v1/parties/*/complete",
-                                "/api/v1/delivery-parties/*/complete"
+                                 HttpMethod.PATCH,
+                                 "/api/v1/parties/*/complete",
+                                 "/api/v1/delivery-parties/*/complete",
+                                 "/api/v1/parties/*/order",
+                                 "/api/v1/delivery-parties/*/order",
+                                 "/api/v1/parties/*/close",
+                                 "/api/v1/delivery-parties/*/close"
                         ).authenticated()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET,

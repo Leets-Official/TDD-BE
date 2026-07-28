@@ -8,6 +8,7 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
@@ -267,6 +268,23 @@ public class DeliveryPartyService {
 
         return new CompleteDeliveryPartyResponse(
                 deliveryParty.getId(),
+                deliveryParty.getStatus().name()
+        );
+    }
+
+    @Transactional
+    public CloseDeliveryPartyResponse closeDeliveryParty(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.CLOSE_FORBIDDEN);
+        }
+        if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
+            throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
+        }
+        deliveryParty.close();
+        return new CloseDeliveryPartyResponse(
+                deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
                 deliveryParty.getStatus().name()
         );
     }
