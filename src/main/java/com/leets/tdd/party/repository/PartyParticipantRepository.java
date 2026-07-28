@@ -21,6 +21,8 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
 
   List<PartyParticipant> findAllByPartyId(Long partyId);
 
+  long countByPartyIdAndStatus(Long partyId, PartyParticipantStatus status);
+
   List<PartyParticipant> findAllByPartyIdIn(Collection<Long> partyIds);
 
   List<PartyParticipant> findAllByUserIdAndPaymentStatusIsNotNull(Long userId);

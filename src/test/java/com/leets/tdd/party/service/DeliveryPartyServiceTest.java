@@ -6,15 +6,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.party.domain.FoodCategory;
+import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
@@ -31,6 +35,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private DeliveryPartyRepository deliveryPartyRepository;
+
+    @Mock
+    private FoodCategoryRepository foodCategoryRepository;
 
     @Mock
     private PartyParticipantRepository partyParticipantRepository;
@@ -146,6 +153,31 @@ class DeliveryPartyServiceTest {
         assertThat(response.parties().getFirst().status()).isEqualTo("RECRUITING");
         assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
         assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+    }
+
+    @Test
+    void 배달팟_제목으로_검색에_성공한다() {
+        DeliveryParty party = org.mockito.Mockito.mock(DeliveryParty.class);
+        FoodCategory category = org.mockito.Mockito.mock(FoodCategory.class);
+        when(party.getId()).thenReturn(15L);
+        when(party.getFoodCategoryId()).thenReturn(1L);
+        when(party.getTitle()).thenReturn("BBQ 황금올리브 같이 시켜요");
+        when(party.getMaxParticipants()).thenReturn(4);
+        when(party.getStatus()).thenReturn(PartyStatus.RECRUITING);
+        when(category.getId()).thenReturn(1L);
+        when(category.getName()).thenReturn("치킨");
+        when(deliveryPartyRepository.findByTitleContainingIgnoreCaseOrderByCreatedAtDesc("치킨"))
+                .thenReturn(java.util.List.of(party));
+        when(foodCategoryRepository.findAllById(java.util.List.of(1L)))
+                .thenReturn(java.util.List.of(category));
+        when(partyParticipantRepository.countByPartyIdAndStatus(15L, PartyParticipantStatus.JOINED))
+                .thenReturn(2L);
+
+        DeliveryPartySearchResponse response = deliveryPartyService.searchDeliveryParties("치킨");
+
+        assertThat(response.parties()).hasSize(1);
+        assertThat(response.parties().getFirst().title()).isEqualTo("BBQ 황금올리브 같이 시켜요");
+        assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
     }
 
 

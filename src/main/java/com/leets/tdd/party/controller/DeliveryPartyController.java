@@ -8,6 +8,7 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
+import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
@@ -95,6 +96,20 @@ public class DeliveryPartyController {
                 currentUser.userId(), status, categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
         );
         return ResponseEntity.ok(ApiResponse.success("내 배달팟 목록 조회에 성공했습니다.", response));
+    }
+
+    @Operation(summary = "배달팟 검색", description = "검색어가 포함된 배달팟 제목을 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 검색 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "검색어 미입력"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "검색 결과 없음")
+    })
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<DeliveryPartySearchResponse>> searchDeliveryParties(
+            @RequestParam(required = false) String keyword
+    ) {
+        DeliveryPartySearchResponse response = deliveryPartyService.searchDeliveryParties(keyword);
+        return ResponseEntity.ok(ApiResponse.success("배달팟 검색에 성공했습니다.", response));
     }
 
 
