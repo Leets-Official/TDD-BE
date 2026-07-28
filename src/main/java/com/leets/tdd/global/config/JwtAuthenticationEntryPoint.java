@@ -27,6 +27,19 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
+        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+        if (requestPath.matches("/api/v1/(parties|delivery-parties)/me")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/complete")
+                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/order")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write(
+                    objectMapper.writeValueAsString(ApiResponse.fail("로그인이 필요합니다."))
+            );
+            return;
+        }
+
         Object errorType = request.getAttribute(JwtAuthenticationFilter.JWT_ERROR_ATTRIBUTE);
 
         UserErrorCode errorCode;

@@ -47,7 +47,17 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/v1/parties/*/complete",
+                                "/api/v1/delivery-parties/*/complete"
+                        ).authenticated()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/parties",
+                                "/api/v1/delivery-parties",
+                                "/api/v1/parties/search",
+                                "/api/v1/delivery-parties/search").permitAll()
                         // 계정등록(회원가입 완료)은 아직 로그인 전 상태라 토큰이 없다. GET(마이페이지)은
                         // 인증이 필요하니 이 경로/메서드만 예외로 공개한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/me").permitAll()
