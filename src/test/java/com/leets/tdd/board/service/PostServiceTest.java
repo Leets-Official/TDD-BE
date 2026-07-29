@@ -15,6 +15,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.assertj.core.api.Assertions;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 
@@ -59,14 +61,18 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("다른 사람 글에 댓글을 달면 원글 작성자에게 알림을 발송한다")
+    @DisplayName("다른 사람 글에 댓글을 달면 원글 작성자에게 BOARD 알림을 발송한다")
     void createComment_othersPost_sendsToAuthor() {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(postBy(POST_AUTHOR_ID)));
         stubCommentSave();
 
         postService.createComment(POST_ID, COMMENTER_ID, new CommentCreateRequest("댓글내용", null));
 
-        verify(webPushSender, times(1)).sendToUser(eq(POST_AUTHOR_ID), any(WebPushPayload.class));
+        ArgumentCaptor<WebPushPayload> captor = ArgumentCaptor.forClass(WebPushPayload.class);
+        verify(webPushSender, times(1)).sendToUser(eq(POST_AUTHOR_ID), captor.capture());
+        WebPushPayload payload = captor.getValue();
+        Assertions.assertThat(payload.category()).isEqualTo("BOARD");
+        Assertions.assertThat(payload.url()).isEqualTo("/posts/" + POST_ID);
     }
 
     @Test
@@ -79,4 +85,20 @@ class PostServiceTest {
 
         verify(webPushSender, never()).sendToUser(any(), any(WebPushPayload.class));
     }
+
+    @Test
+    @DisplayName("대댓글을 달아도 원글 작성자에게 알림을 발송한다")
+    void createComment_reply_sendsToAuthor() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(postBy(POST_AUTHOR_ID)));
+        // 부모 댓글 (일반 댓글) - 대댓글 검증 통과용
+        Comment parent = Comment.create(POST_ID, 30L, null, "부모댓글");
+        ReflectionTestUtils.setField(parent, "id", 50L);
+        when(commentRepository.findById(50L)).thenReturn(Optional.of(parent));
+        stubCommentSave();
+
+        postService.createComment(POST_ID, COMMENTER_ID, new CommentCreateRequest("대댓글내용", 50L));
+
+        verify(webPushSender, times(1)).sendToUser(eq(POST_AUTHOR_ID), any(WebPushPayload.class));
+    }
+
 }
