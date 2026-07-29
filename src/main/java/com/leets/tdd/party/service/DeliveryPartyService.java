@@ -1,5 +1,6 @@
 package com.leets.tdd.party.service;
 
+import com.leets.tdd.chat.service.ChatService;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantRole;
@@ -52,6 +53,7 @@ public class DeliveryPartyService {
     private final FoodCategoryRepository foodCategoryRepository;
     private final PartyParticipantRepository partyParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ChatService chatService;
 
 
     // 배달팟 생성 API
@@ -439,6 +441,7 @@ public class DeliveryPartyService {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
         deliveryParty.close();
+        chatService.createChatRoom(partyId);
         publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
         return new CloseDeliveryPartyResponse(
                 deliveryParty.getId() == null ? partyId : deliveryParty.getId(),

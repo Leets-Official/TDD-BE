@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.leets.tdd.party.domain.DeliveryParty;
+import com.leets.tdd.chat.service.ChatService;
 import com.leets.tdd.party.domain.FoodCategory;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantRole;
@@ -54,6 +55,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private ChatService chatService;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -311,6 +315,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.partyId()).isEqualTo(10L);
         assertThat(response.status()).isEqualTo("CLOSED");
         assertThat(deliveryParty.getClosedAt()).isNotNull();
+        verify(chatService).createChatRoom(10L);
         assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
     }
 
