@@ -53,6 +53,9 @@ class SettlementServiceImplTest {
   @Mock
   private UserRepository userRepository;
 
+  @Mock
+  private SettlementNotifier settlementNotifier;
+
   @InjectMocks
   private SettlementServiceImpl settlementService;
 
@@ -201,6 +204,45 @@ class SettlementServiceImplTest {
     assertThat(response.incoming().getFirst().totalCount()).isEqualTo(1);
     verify(partyParticipantRepository).findAllByPartyIdIn(List.of(10L));
     verify(partyParticipantRepository, never()).findAllByPartyId(10L);
+  }
+
+  @Test
+  void 정산을_요청하면_계좌를_담은_시스템_메시지_발행을_트리거한다() {
+    DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
+    PartyParticipant host = participant(10L, 1L, PartyParticipantRole.HOST);
+    PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
+    BankAccount account = org.mockito.Mockito.mock(BankAccount.class);
+    User hostUser = user(1L, "방장");
+    User memberUser = user(2L, "참여자");
+
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
+    given(partyParticipantRepository.findAllByPartyId(10L)).willReturn(List.of(host, member));
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(account));
+    given(account.getId()).willReturn(100L);
+    given(userRepository.findAllByIdIn(any())).willReturn(List.of(hostUser, memberUser));
+
+    settlementService.createSettlement(
+        1L,
+        10L,
+        new CreateSettlementRequest(20_000, List.of(new SettlementPaymentRequest(2L, 12_000)))
+    );
+
+    verify(settlementNotifier).notifySettlementRequested(10L, 20_000, account);
+  }
+
+  @Test
+  void 정산을_완료하면_방장을_제외한_정산_대상에게만_알림을_트리거한다() {
+    DeliveryParty party = requestedParty(10L, 1L);
+    PartyParticipant host = participant(10L, 1L, PartyParticipantRole.HOST);
+    PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
+    member.assignSettlementAmount(12_000);
+
+    given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
+    given(partyParticipantRepository.findAllByPartyId(10L)).willReturn(List.of(host, member));
+
+    settlementService.completeSettlement(1L, 10L);
+
+    verify(settlementNotifier).notifySettlementCompleted(10L, "치킨 같이 시켜요", List.of(2L));
   }
 
   private DeliveryParty party(Long id, Long creatorId, PartyStatus status, SettlementStatus settlementStatus) {
