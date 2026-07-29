@@ -50,6 +50,7 @@ public class SettlementServiceImpl implements SettlementService {
   private final PartyParticipantRepository partyParticipantRepository;
   private final BankAccountRepository bankAccountRepository;
   private final UserRepository userRepository;
+  private final SettlementNotifier settlementNotifier;
 
   @Override
   @Transactional
@@ -95,6 +96,7 @@ public class SettlementServiceImpl implements SettlementService {
         .assignSettlementAmount(payment.amount()));
     party.requestSettlement(request.totalAmount(), bankAccount.getId(), LocalDateTime.now());
     log.info("settlement.created partyId={}, hostId={}, targetCount={}", partyId, currentUserId, request.payments().size());
+    settlementNotifier.notifySettlementRequested(partyId, request.totalAmount(), bankAccount);
 
     return toSettlementDetailResponse(party, bankAccount, participants);
   }
@@ -153,12 +155,15 @@ public class SettlementServiceImpl implements SettlementService {
     DeliveryParty party = getPartyForUpdate(partyId);
     validateHost(party, currentUserId);
     validateSettlementRequested(party);
-    long unpaidCount = partyParticipantRepository.findAllByPartyId(partyId).stream()
+    List<PartyParticipant> participants = partyParticipantRepository.findAllByPartyId(partyId);
+    long unpaidCount = participants.stream()
         .filter(PartyParticipant::isJoined)
         .filter(participant -> participant.getPaymentStatus() == PaymentStatus.PENDING)
         .count();
     party.completeSettlement();
     log.info("settlement.completed partyId={}, hostId={}, unpaidCount={}", partyId, currentUserId, unpaidCount);
+    settlementNotifier.notifySettlementCompleted(
+        partyId, party.getTitle(), settlementTargetUserIds(party, participants));
     return new SettlementCompletionResponse(partyId, party.getSettlementStatus().name(), unpaidCount);
   }
 
@@ -321,6 +326,15 @@ public class SettlementServiceImpl implements SettlementService {
       return accountNumber;
     }
     return accountNumber.substring(0, visibleLength) + "*".repeat(accountNumber.length() - visibleLength);
+  }
+
+  private List<Long> settlementTargetUserIds(DeliveryParty party, List<PartyParticipant> participants) {
+    return participants.stream()
+        .filter(PartyParticipant::isJoined)
+        .filter(participant -> participant.getPaymentStatus() != null)
+        .map(PartyParticipant::getUserId)
+        .filter(userId -> !userId.equals(party.getCreatorId()))
+        .toList();
   }
 
   private SettlementDetailResponse toSettlementDetailResponse(
