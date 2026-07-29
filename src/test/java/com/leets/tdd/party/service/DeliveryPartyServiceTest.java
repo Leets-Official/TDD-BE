@@ -3,10 +3,13 @@ package com.leets.tdd.party.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.FoodCategory;
+import com.leets.tdd.party.domain.PartyParticipant;
+import com.leets.tdd.party.domain.PartyParticipantRole;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
@@ -28,11 +31,13 @@ import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjecti
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +51,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private PartyParticipantRepository partyParticipantRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -256,6 +264,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.partyId()).isEqualTo(10L);
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.DELIVERY_COMPLETED);
     }
 
     @Test
@@ -267,6 +276,7 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.COMPLETE_FORBIDDEN);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -301,6 +311,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.partyId()).isEqualTo(10L);
         assertThat(response.status()).isEqualTo("CLOSED");
         assertThat(deliveryParty.getClosedAt()).isNotNull();
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
     }
 
     @Test
@@ -336,6 +347,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.status()).isEqualTo("ORDERED");
         assertThat(response.settlementStatus()).isEqualTo("NONE");
         assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.ORDERED);
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.ORDER_COMPLETED);
     }
 
     @Test
@@ -347,6 +359,7 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ORDER_FORBIDDEN);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -369,6 +382,59 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ALREADY_ORDERED);
+    }
+
+    @Test
+    void 참여자_추가_후_참여_알림_이벤트를_발행한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
+                10L, 2L, PartyParticipantStatus.JOINED
+        )).thenReturn(false);
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(1L);
+
+        deliveryPartyService.joinDeliveryParty(10L, 2L);
+
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_JOINED);
+    }
+
+    @Test
+    void 참여_취소_후_퇴장_알림_이벤트를_발행한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        PartyParticipant participant = new PartyParticipant(
+                10L, 2L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now()
+        );
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.findByPartyIdAndUserId(10L, 2L)).thenReturn(Optional.of(participant));
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(0L);
+
+        deliveryPartyService.leaveDeliveryParty(10L, 2L);
+
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_LEFT);
+    }
+
+    @Test
+    void 배달팟_취소_후_취소_알림_이벤트를_발행한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        deliveryPartyService.deleteDeliveryParty(10L, 1L);
+
+        assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.PARTY_CANCELED);
+    }
+
+    private void assertNotificationPublished(
+            DeliveryParty expectedParty,
+            DeliveryPartyNotificationType expectedType
+    ) {
+        ArgumentCaptor<DeliveryPartyNotificationEvent> captor = ArgumentCaptor.forClass(
+                DeliveryPartyNotificationEvent.class
+        );
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().party()).isSameAs(expectedParty);
+        assertThat(captor.getValue().type()).isEqualTo(expectedType);
     }
 
     private DeliveryParty party(Long id, Long creatorId, PartyStatus status) {
