@@ -33,6 +33,7 @@ import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,7 +51,7 @@ public class DeliveryPartyService {
     private final UserRepository userRepository;
     private final FoodCategoryRepository foodCategoryRepository;
     private final PartyParticipantRepository partyParticipantRepository;
-    private final DeliveryPartyNotifier deliveryPartyNotifier;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     // 배달팟 생성 API
@@ -227,7 +228,7 @@ public class DeliveryPartyService {
         } catch (DataIntegrityViolationException exception) {
             throw new PartyException(PartyErrorCode.JOIN_FAILED);
         }
-        deliveryPartyNotifier.notifyParticipantJoined(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_JOINED);
 
         return new JoinDeliveryPartyResponse(
                 partyId,
@@ -249,7 +250,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.cancel();
-        deliveryPartyNotifier.notifyPartyCanceled(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.PARTY_CANCELED);
         return partyId;
     }
 
@@ -277,7 +278,7 @@ public class DeliveryPartyService {
         } catch (DataIntegrityViolationException exception) {
             throw new PartyException(PartyErrorCode.LEAVE_FAILED);
         }
-        deliveryPartyNotifier.notifyParticipantLeft(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_LEFT);
 
         return new LeaveDeliveryPartyResponse(
                 partyId,
@@ -290,6 +291,10 @@ public class DeliveryPartyService {
         return 1 + partyParticipantRepository.countByPartyIdAndStatus(
                 partyId, PartyParticipantStatus.JOINED
         );
+    }
+
+    private void publishNotification(DeliveryParty party, DeliveryPartyNotificationType type) {
+        eventPublisher.publishEvent(new DeliveryPartyNotificationEvent(party, type));
     }
 
     public MyDeliveryPartyListResponse getMyDeliveryParties(
@@ -415,7 +420,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeDelivery();
-        deliveryPartyNotifier.notifyDeliveryCompleted(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.DELIVERY_COMPLETED);
 
         return new CompleteDeliveryPartyResponse(
                 deliveryParty.getId(),
@@ -434,7 +439,7 @@ public class DeliveryPartyService {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
         deliveryParty.close();
-        deliveryPartyNotifier.notifyRecruitmentClosed(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
         return new CloseDeliveryPartyResponse(
                 deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
                 deliveryParty.getStatus().name()
@@ -459,7 +464,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeOrder();
-        deliveryPartyNotifier.notifyOrderCompleted(deliveryParty);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.ORDER_COMPLETED);
 
         return new OrderDeliveryPartyResponse(
                 deliveryParty.getId(),
