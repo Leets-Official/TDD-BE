@@ -22,6 +22,7 @@ import com.leets.tdd.party.service.DeliveryPartyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -42,12 +43,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
 @RequiredArgsConstructor
+@Tag(name = "Delivery Party", description = "배달팟 생성, 조회, 참여 및 상태 변경 API")
 public class DeliveryPartyController {
 
     private final DeliveryPartyService deliveryPartyService;
 
 
     // 배달팟 생성 API
+    @Operation(summary = "배달팟 생성", description = "로그인한 사용자가 배달팟을 생성하고 방장 및 첫 번째 참여자로 등록됩니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "배달팟 생성 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "입력값 검증 실패"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "음식 카테고리 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 생성 실패")
+    })
     @PostMapping
     public ResponseEntity<CreateDeliveryPartyResponse> createDeliveryParty(
             @RequestBody CreateDeliveryPartyRequest request
@@ -67,6 +78,7 @@ public class DeliveryPartyController {
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 필터 조건"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 목록 조회 실패")
     })
     @GetMapping
@@ -89,6 +101,7 @@ public class DeliveryPartyController {
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "내 배달팟 목록 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 필터 조건"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "내 배달팟 목록 조회 실패")
     })
@@ -111,7 +124,8 @@ public class DeliveryPartyController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 검색 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "검색어 미입력"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "검색 결과 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "검색 결과 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 검색 실패")
     })
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<DeliveryPartySearchResponse>> searchDeliveryParties(
@@ -123,6 +137,12 @@ public class DeliveryPartyController {
 
 
     // 배달팟 상세 조회 API
+    @Operation(summary = "배달팟 상세 조회", description = "배달팟의 상세 정보와 현재 상태를 조회합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 상세 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 상세 조회 실패")
+    })
     @GetMapping("/{partyId}")
     public ResponseEntity<DeliveryPartyDetailResponse> getDeliveryPartyDetail(
             @PathVariable Long partyId
@@ -139,7 +159,8 @@ public class DeliveryPartyController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "참여자 목록 조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "참여자 목록 조회 실패")
     })
     @GetMapping("/{partyId}/participants")
     public ResponseEntity<ApiResponse<PartyParticipantListResponse>> getPartyParticipants(
@@ -154,9 +175,11 @@ public class DeliveryPartyController {
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 참여 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "모집이 종료된 배달팟"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 참여했거나 모집 인원 초과")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "이미 참여했거나 모집 인원 초과"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 참여 실패")
     })
     @PostMapping("/{partyId}/join")
     public ResponseEntity<ApiResponse<JoinDeliveryPartyResponse>> joinDeliveryParty(
@@ -174,9 +197,11 @@ public class DeliveryPartyController {
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 삭제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "삭제할 수 없는 배달팟 상태"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 삭제 실패")
     })
     @DeleteMapping("/{partyId}")
     public ResponseEntity<ApiResponse<DeleteDeliveryPartyResponse>> deleteDeliveryParty(
@@ -194,9 +219,11 @@ public class DeliveryPartyController {
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 참여 취소 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "참여 취소할 수 없는 상태 또는 참여자가 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장 참여 취소 불가"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 참여 취소 실패")
     })
     @DeleteMapping("/{partyId}/participants")
     public ResponseEntity<ApiResponse<LeaveDeliveryPartyResponse>> leaveDeliveryParty(
@@ -212,6 +239,7 @@ public class DeliveryPartyController {
 
 
     // 배달팟 수정 API
+    @Operation(hidden = true)
     @PutMapping("/{partyId}")
     public ResponseEntity<Void> updateDeliveryParty(
             @PathVariable Long partyId,
@@ -228,6 +256,16 @@ public class DeliveryPartyController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "배달 완료", description = "파티장이 주문 완료된 배달팟을 배달 완료 상태로 변경합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달 완료 처리 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "주문 완료 상태가 아니거나 이미 배달 완료됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달 완료 처리 실패")
+    })
     @PatchMapping("/{partyId}/complete")
     public ResponseEntity<ApiResponse<CompleteDeliveryPartyResponse>> completeDelivery(
             @PathVariable Long partyId,
@@ -241,6 +279,16 @@ public class DeliveryPartyController {
         return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
     }
 
+    @Operation(summary = "배달팟 모집 마감", description = "파티장이 모집 중인 배달팟의 모집을 마감합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 모집 마감 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감된 배달팟"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "배달팟 모집 마감 실패")
+    })
     @PatchMapping("/{partyId}/close")
     public ResponseEntity<ApiResponse<CloseDeliveryPartyResponse>> closeDeliveryParty(
             @PathVariable Long partyId,
@@ -253,6 +301,16 @@ public class DeliveryPartyController {
         return ResponseEntity.ok(ApiResponse.success("배달팟 모집이 마감되었습니다.", response));
     }
 
+    @Operation(summary = "주문 완료", description = "파티장이 모집 마감된 배달팟을 주문 완료 상태로 변경합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "주문 완료 처리 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "모집 마감 상태가 아니거나 이미 주문 완료됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "주문 완료 처리 실패")
+    })
     @PatchMapping("/{partyId}/order")
     public ResponseEntity<ApiResponse<OrderDeliveryPartyResponse>> completeOrder(
             @PathVariable Long partyId,
