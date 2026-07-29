@@ -60,7 +60,7 @@ public class SettlementController {
   }
 
   @PostMapping("/parties/{partyId}/settlement")
-  @Operation(summary = "정산 요청 생성", description = "방장이 완료된 배달팟의 정산을 요청합니다.")
+  @Operation(summary = "정산 요청 생성", description = "방장이 완료된 배달팟의 정산을 요청합니다. 배달팟에 채팅방이 있으면 방장 계좌가 담긴 SETTLEMENT_REQUEST 시스템 메시지가 함께 발행되고, 채팅방이 없으면 메시지 없이 정산 요청만 처리됩니다.")
   public ResponseEntity<ApiResponse<SettlementDetailResponse>> createSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId,
@@ -102,7 +102,7 @@ public class SettlementController {
   }
 
   @PatchMapping("/parties/{partyId}/settlement/complete")
-  @Operation(summary = "정산 완료", description = "방장이 진행 중인 정산을 완료합니다.")
+  @Operation(summary = "정산 완료", description = "방장이 진행 중인 정산을 완료합니다. 방장을 제외한 정산 대상 참여자에게 웹푸시 알림을 발송합니다.")
   public ResponseEntity<ApiResponse<SettlementCompletionResponse>> completeSettlement(
       @AuthenticationPrincipal UserPrincipal userPrincipal,
       @PathVariable Long partyId
