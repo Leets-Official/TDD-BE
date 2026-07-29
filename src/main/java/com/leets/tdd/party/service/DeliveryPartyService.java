@@ -50,6 +50,7 @@ public class DeliveryPartyService {
     private final UserRepository userRepository;
     private final FoodCategoryRepository foodCategoryRepository;
     private final PartyParticipantRepository partyParticipantRepository;
+    private final DeliveryPartyNotifier deliveryPartyNotifier;
 
 
     // 배달팟 생성 API
@@ -226,6 +227,7 @@ public class DeliveryPartyService {
         } catch (DataIntegrityViolationException exception) {
             throw new PartyException(PartyErrorCode.JOIN_FAILED);
         }
+        deliveryPartyNotifier.notifyParticipantJoined(deliveryParty);
 
         return new JoinDeliveryPartyResponse(
                 partyId,
@@ -247,6 +249,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.cancel();
+        deliveryPartyNotifier.notifyPartyCanceled(deliveryParty);
         return partyId;
     }
 
@@ -274,6 +277,7 @@ public class DeliveryPartyService {
         } catch (DataIntegrityViolationException exception) {
             throw new PartyException(PartyErrorCode.LEAVE_FAILED);
         }
+        deliveryPartyNotifier.notifyParticipantLeft(deliveryParty);
 
         return new LeaveDeliveryPartyResponse(
                 partyId,
@@ -411,6 +415,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeDelivery();
+        deliveryPartyNotifier.notifyDeliveryCompleted(deliveryParty);
 
         return new CompleteDeliveryPartyResponse(
                 deliveryParty.getId(),
@@ -429,6 +434,7 @@ public class DeliveryPartyService {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
         deliveryParty.close();
+        deliveryPartyNotifier.notifyRecruitmentClosed(deliveryParty);
         return new CloseDeliveryPartyResponse(
                 deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
                 deliveryParty.getStatus().name()
@@ -453,6 +459,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeOrder();
+        deliveryPartyNotifier.notifyOrderCompleted(deliveryParty);
 
         return new OrderDeliveryPartyResponse(
                 deliveryParty.getId(),

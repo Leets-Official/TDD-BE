@@ -47,6 +47,9 @@ class DeliveryPartyServiceTest {
     @Mock
     private PartyParticipantRepository partyParticipantRepository;
 
+    @Mock
+    private DeliveryPartyNotifier deliveryPartyNotifier;
+
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
 
@@ -256,6 +259,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.partyId()).isEqualTo(10L);
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        verify(deliveryPartyNotifier).notifyDeliveryCompleted(deliveryParty);
     }
 
     @Test
@@ -301,6 +305,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.partyId()).isEqualTo(10L);
         assertThat(response.status()).isEqualTo("CLOSED");
         assertThat(deliveryParty.getClosedAt()).isNotNull();
+        verify(deliveryPartyNotifier).notifyRecruitmentClosed(deliveryParty);
     }
 
     @Test
@@ -336,6 +341,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.status()).isEqualTo("ORDERED");
         assertThat(response.settlementStatus()).isEqualTo("NONE");
         assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.ORDERED);
+        verify(deliveryPartyNotifier).notifyOrderCompleted(deliveryParty);
     }
 
     @Test
