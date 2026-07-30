@@ -1,5 +1,7 @@
 package com.leets.tdd.board.service;
 
+import com.leets.tdd.global.webpush.WebPushSender;
+import com.leets.tdd.global.webpush.WebPushPayload;
 import com.leets.tdd.board.domain.Comment;
 import com.leets.tdd.board.domain.Post;
 import com.leets.tdd.board.dto.CommentCount;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,6 +38,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final WebPushSender webPushSender;
 
     /** 게시글을 작성한다. */
     @Transactional
@@ -98,7 +102,7 @@ public class PostService {
     /** 댓글 또는 대댓글을 등록한다. */
     @Transactional
     public Long createComment(Long postId, Long userId, CommentCreateRequest request) {
-        findPost(postId);
+        Post post = findPost(postId);
 
         Long parentCommentId = request.parentCommentId();
         if (parentCommentId != null) {
@@ -113,7 +117,23 @@ public class PostService {
         }
 
         Comment comment = Comment.create(postId, userId, parentCommentId, request.content());
-        return commentRepository.save(comment).getId();
+        Long commentId = commentRepository.save(comment).getId();
+
+        // 원글 작성자에게 새 댓글 알림을 발송한다. 자기 글에 자기가 단 댓글은 제외.
+        Long postAuthorId = post.getUserId();
+        if (!postAuthorId.equals(userId)) {
+            webPushSender.sendToUser(
+                    postAuthorId,
+                    new WebPushPayload(
+                            "새 댓글",
+                            "회원님의 게시글에 새 댓글이 달렸어요.",
+                            "BOARD",
+                            "/posts/" + postId
+                    )
+            );
+        }
+
+        return commentId;
     }
 
     private Post findPost(Long postId) {
