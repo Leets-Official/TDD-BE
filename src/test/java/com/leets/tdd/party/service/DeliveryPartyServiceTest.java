@@ -99,7 +99,14 @@ class DeliveryPartyServiceTest {
 
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
-        User leader = new User("leader@test.com", "방장", "password", "", LocalDateTime.now());
+        User leader = new User(
+                "leader@test.com",
+                "방장",
+                "password",
+                "",
+                LocalDateTime.now()
+        );
+        leader.updateProfile("방장", "https://example.com/leader.png");
         ReflectionTestUtils.setField(leader, "id", 1L);
         Dormitory dormitory = new Dormitory(1L, "1기숙사", null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(leader));
@@ -118,6 +125,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.getStatus())
                 .isEqualTo("RECRUITING");
         assertThat(response.getLeaderNickname()).isEqualTo("방장");
+        assertThat(response.getLeaderProfileImage()).isEqualTo("https://example.com/leader.png");
         assertThat(response.getLeaderMannerTemperature()).isEqualByComparingTo("36.5");
         assertThat(response.getDormitory()).isEqualTo("1기숙사");
     }
