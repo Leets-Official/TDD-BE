@@ -60,17 +60,14 @@ public class DeliveryPartyService {
 
 
     // 배달팟 생성 API
-    public CreateDeliveryPartyResponse createDeliveryParty(CreateDeliveryPartyRequest request) {
-
-        User user = userRepository.findAll()
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("사용자가 없습니다."));
-
-        Long creatorId = user.getId();
+    @Transactional
+    public CreateDeliveryPartyResponse createDeliveryParty(
+            CreateDeliveryPartyRequest request,
+            Long currentUserId
+    ) {
 
         DeliveryParty deliveryParty = new DeliveryParty(
-                creatorId,
+                currentUserId,
                 request.getFoodCategoryId(),
                 request.getTitle(),
                 request.getDescription(),
@@ -88,6 +85,13 @@ public class DeliveryPartyService {
         );
 
         DeliveryParty savedDeliveryParty = deliveryPartyRepository.save(deliveryParty);
+        partyParticipantRepository.save(new PartyParticipant(
+                savedDeliveryParty.getId(),
+                currentUserId,
+                PartyParticipantRole.HOST,
+                PartyParticipantStatus.JOINED,
+                LocalDateTime.now()
+        ));
 
         return new CreateDeliveryPartyResponse(
                 savedDeliveryParty.getId(),
@@ -126,12 +130,17 @@ public class DeliveryPartyService {
 
     public RecruitingDeliveryPartyListResponse getRecruitingDeliveryParties(
             Long categoryId,
-            Long dormitoryId,
+            String dormitory,
             LocalDateTime orderExpectedFrom,
             LocalDateTime orderExpectedTo
     ) {
         List<RecruitingDeliveryPartyResponse> parties = deliveryPartyRepository
-                .findRecruitingDeliveryParties(categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo)
+                .findRecruitingDeliveryParties(
+                        categoryId,
+                        normalizeDormitory(dormitory),
+                        orderExpectedFrom,
+                        orderExpectedTo
+                )
                 .stream()
                 .map(party -> new RecruitingDeliveryPartyResponse(
                         party.getPartyId(),
@@ -172,31 +181,27 @@ public class DeliveryPartyService {
                 .findAllByPartyIdAndStatus(partyId, PartyParticipantStatus.JOINED);
         List<Long> userIds = joinedParticipants.stream()
                 .map(PartyParticipant::getUserId)
-                .filter(userId -> !userId.equals(deliveryParty.getCreatorId()))
-                .collect(Collectors.toList());
-        userIds.add(deliveryParty.getCreatorId());
+                .toList();
 
         Map<Long, User> usersById = userRepository.findAllByIdIn(userIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
-        User owner = usersById.get(deliveryParty.getCreatorId());
-        if (owner == null) {
-            throw new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED);
-        }
-
-        List<PartyParticipantResponse> participants = new java.util.ArrayList<>();
-        participants.add(toParticipantResponse(owner, "OWNER"));
-        for (PartyParticipant participant : joinedParticipants) {
-            if (participant.getUserId().equals(deliveryParty.getCreatorId())) {
-                continue;
-            }
+        return new PartyParticipantListResponse(
+                partyId,
+                joinedParticipants.stream()
+                        .sorted((left, right) -> left.getRole() == PartyParticipantRole.HOST ? -1
+                                : right.getRole() == PartyParticipantRole.HOST ? 1 : 0)
+                        .map(participant -> {
             User user = usersById.get(participant.getUserId());
             if (user == null) {
                 throw new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED);
             }
-            participants.add(toParticipantResponse(user, "MEMBER"));
-        }
-
-        return new PartyParticipantListResponse(partyId, participants);
+                            return toParticipantResponse(
+                                    user,
+                                    participant.getRole() == PartyParticipantRole.HOST ? "OWNER" : "MEMBER"
+                            );
+                        })
+                        .toList()
+        );
     }
 
     private PartyParticipantResponse toParticipantResponse(User user, String role) {
@@ -299,7 +304,7 @@ public class DeliveryPartyService {
     }
 
     private long currentParticipants(Long partyId) {
-        return 1 + partyParticipantRepository.countByPartyIdAndStatus(
+        return partyParticipantRepository.countByPartyIdAndStatus(
                 partyId, PartyParticipantStatus.JOINED
         );
     }
@@ -312,7 +317,7 @@ public class DeliveryPartyService {
             Long userId,
             MyPartyStatusFilter status,
             Long categoryId,
-            Long dormitoryId,
+            String dormitory,
             LocalDateTime orderExpectedFrom,
             LocalDateTime orderExpectedTo
     ) {
@@ -322,7 +327,7 @@ public class DeliveryPartyService {
                         userId,
                         filter.name(),
                         categoryId,
-                        dormitoryId,
+                        normalizeDormitory(dormitory),
                         orderExpectedFrom,
                         orderExpectedTo
                 ).stream()
@@ -340,6 +345,13 @@ public class DeliveryPartyService {
                 .toList();
 
         return new MyDeliveryPartyListResponse(parties);
+    }
+
+    private String normalizeDormitory(String dormitory) {
+        if (dormitory == null || dormitory.isBlank() || "전체".equals(dormitory)) {
+            return null;
+        }
+        return dormitory;
     }
 
     public DeliveryPartySearchResponse searchDeliveryParties(String keyword) {

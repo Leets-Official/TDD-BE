@@ -61,10 +61,11 @@ public class DeliveryPartyController {
     })
     @PostMapping
     public ResponseEntity<CreateDeliveryPartyResponse> createDeliveryParty(
-            @RequestBody CreateDeliveryPartyRequest request
+            @RequestBody CreateDeliveryPartyRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         CreateDeliveryPartyResponse response =
-                deliveryPartyService.createDeliveryParty(request);
+                deliveryPartyService.createDeliveryParty(request, currentUser.userId());
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -84,12 +85,12 @@ public class DeliveryPartyController {
     @GetMapping
     public ResponseEntity<ApiResponse<RecruitingDeliveryPartyListResponse>> getDeliveryParties(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) String dormitory,
             @RequestParam(required = false) LocalDateTime orderExpectedFrom,
             @RequestParam(required = false) LocalDateTime orderExpectedTo
     ) {
         RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
-                categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+                categoryId, dormitory, orderExpectedFrom, orderExpectedTo
         );
         return ResponseEntity.ok(ApiResponse.success("배달팟 목록 조회에 성공했습니다.", response));
     }
@@ -110,12 +111,12 @@ public class DeliveryPartyController {
             @AuthenticationPrincipal UserPrincipal currentUser,
             @RequestParam(defaultValue = "ALL") MyPartyStatusFilter status,
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long dormitoryId,
+            @RequestParam(required = false) String dormitory,
             @RequestParam(required = false) LocalDateTime orderExpectedFrom,
             @RequestParam(required = false) LocalDateTime orderExpectedTo
     ) {
         MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
-                currentUser.userId(), status, categoryId, dormitoryId, orderExpectedFrom, orderExpectedTo
+                currentUser.userId(), status, categoryId, dormitory, orderExpectedFrom, orderExpectedTo
         );
         return ResponseEntity.ok(ApiResponse.success("내 배달팟 목록 조회에 성공했습니다.", response));
     }

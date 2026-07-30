@@ -48,7 +48,7 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
        WHERE pp.user_id = :userId
          AND pp.status = 'JOINED'
          AND (:categoryId IS NULL OR dp.food_category_id = :categoryId)
-         AND (:dormitoryId IS NULL OR dorm.id = :dormitoryId)
+         AND (:dormitory IS NULL OR dorm.dormitory = :dormitory)
          AND (:orderExpectedFrom IS NULL OR dp.order_expected_at >= :orderExpectedFrom)
          AND (:orderExpectedTo IS NULL OR dp.order_expected_at <= :orderExpectedTo)
          AND (:status = 'ALL'
@@ -60,7 +60,7 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
       @Param("userId") Long userId,
       @Param("status") String status,
       @Param("categoryId") Long categoryId,
-      @Param("dormitoryId") Long dormitoryId,
+      @Param("dormitory") String dormitory,
       @Param("orderExpectedFrom") LocalDateTime orderExpectedFrom,
       @Param("orderExpectedTo") LocalDateTime orderExpectedTo
   );
