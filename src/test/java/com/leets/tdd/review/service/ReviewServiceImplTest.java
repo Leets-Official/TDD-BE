@@ -105,7 +105,7 @@ class ReviewServiceImplTest {
 
     assertThat(response.revieweeId()).isEqualTo(2L);
     assertThat(response.tagIds()).containsExactly(1L);
-    assertThat(reviewee.getMannerTemperature()).isEqualByComparingTo("37.0");
+    assertThat(reviewee.getMannerTemperature()).isEqualByComparingTo("3.5");
     verify(reviewTagMappingRepository).saveAll(any());
   }
 
