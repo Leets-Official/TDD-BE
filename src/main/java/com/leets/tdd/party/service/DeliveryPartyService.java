@@ -31,6 +31,8 @@ import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.domain.Dormitory;
+import com.leets.tdd.user.repository.DormitoryRepository;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -50,6 +52,7 @@ public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
     private final UserRepository userRepository;
+    private final DormitoryRepository dormitoryRepository;
     private final FoodCategoryRepository foodCategoryRepository;
     private final PartyParticipantRepository partyParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -135,6 +138,7 @@ public class DeliveryPartyService {
                         party.getTitle(),
                         party.getCategory(),
                         Math.toIntExact(party.getCurrentParticipants()),
+                        party.getMinParticipants(),
                         party.getMaxParticipants(),
                         party.getStatus(),
                         party.getOrderExpectedAt(),
@@ -151,8 +155,12 @@ public class DeliveryPartyService {
 
         DeliveryParty deliveryParty = deliveryPartyRepository.findById(partyId)
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+        User leader = userRepository.findById(deliveryParty.getCreatorId())
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED));
+        Dormitory dormitory = dormitoryRepository.findByUserId(deliveryParty.getCreatorId())
+                .orElse(null);
 
-        return new DeliveryPartyDetailResponse(deliveryParty);
+        return new DeliveryPartyDetailResponse(deliveryParty, leader, dormitory);
     }
 
     @Transactional(readOnly = true)
@@ -196,6 +204,7 @@ public class DeliveryPartyService {
                 user.getId(),
                 user.getNickname(),
                 user.getProfileImageUrl(),
+                user.getMannerTemperature(),
                 role
         );
     }
@@ -322,6 +331,7 @@ public class DeliveryPartyService {
                         party.getTitle(),
                         party.getCategory(),
                         Math.toIntExact(party.getCurrentParticipants()),
+                        party.getMinParticipants(),
                         party.getMaxParticipants(),
                         party.getStatus(),
                         party.getOrderExpectedAt(),

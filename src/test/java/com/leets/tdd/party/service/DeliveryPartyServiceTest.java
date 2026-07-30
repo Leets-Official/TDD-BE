@@ -21,6 +21,7 @@ import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
 import com.leets.tdd.party.dto.response.MyDeliveryPartyListResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.PartyParticipantListResponse;
 import com.leets.tdd.party.repository.projection.MyDeliveryPartyProjection;
 import com.leets.tdd.party.dto.response.RecruitingDeliveryPartyListResponse;
 import com.leets.tdd.party.exception.PartyException;
@@ -30,6 +31,10 @@ import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
+import com.leets.tdd.user.domain.Dormitory;
+import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.repository.DormitoryRepository;
+import com.leets.tdd.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.mockito.ArgumentCaptor;
@@ -52,6 +57,12 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private PartyParticipantRepository partyParticipantRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private DormitoryRepository dormitoryRepository;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -88,6 +99,11 @@ class DeliveryPartyServiceTest {
 
         when(deliveryPartyRepository.findById(1L))
                 .thenReturn(Optional.of(deliveryParty));
+        User leader = new User("leader@test.com", "방장", "password", "", LocalDateTime.now());
+        ReflectionTestUtils.setField(leader, "id", 1L);
+        Dormitory dormitory = new Dormitory(1L, "1기숙사", null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(leader));
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
 
 
         // when
@@ -101,6 +117,9 @@ class DeliveryPartyServiceTest {
 
         assertThat(response.getStatus())
                 .isEqualTo("RECRUITING");
+        assertThat(response.getLeaderNickname()).isEqualTo("방장");
+        assertThat(response.getLeaderMannerTemperature()).isEqualByComparingTo("36.5");
+        assertThat(response.getDormitory()).isEqualTo("1기숙사");
     }
 
 
@@ -120,6 +139,29 @@ class DeliveryPartyServiceTest {
     }
 
     @Test
+    void 참여자_목록에_매너온도를_포함한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        User owner = new User("owner@test.com", "방장", "password", "", LocalDateTime.now());
+        User member = new User("member@test.com", "참여자", "password", "", LocalDateTime.now());
+        ReflectionTestUtils.setField(owner, "id", 1L);
+        ReflectionTestUtils.setField(member, "id", 2L);
+        PartyParticipant joinedMember = new PartyParticipant(
+                10L, 2L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now()
+        );
+        when(deliveryPartyRepository.findById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.findAllByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(java.util.List.of(joinedMember));
+        when(userRepository.findAllByIdIn(java.util.List.of(2L, 1L)))
+                .thenReturn(java.util.List.of(owner, member));
+
+        PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(10L);
+
+        assertThat(response.participants()).hasSize(2);
+        assertThat(response.participants().get(0).mannerTemperature()).isEqualByComparingTo("36.5");
+        assertThat(response.participants().get(1).mannerTemperature()).isEqualByComparingTo("36.5");
+    }
+
+    @Test
     void 참여중인_내_배달팟을_필터와_함께_조회한다() {
         MyDeliveryPartyProjection projection = org.mockito.Mockito.mock(MyDeliveryPartyProjection.class);
         LocalDateTime orderExpectedAt = LocalDateTime.of(2026, 7, 28, 19, 30);
@@ -127,6 +169,7 @@ class DeliveryPartyServiceTest {
         when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
         when(projection.getCategory()).thenReturn("치킨");
         when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMinParticipants()).thenReturn(2);
         when(projection.getMaxParticipants()).thenReturn(4);
         when(projection.getStatus()).thenReturn("RECRUITING");
         when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
@@ -142,6 +185,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.parties()).hasSize(1);
         assertThat(response.parties().getFirst().partyId()).isEqualTo(15L);
         assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+        assertThat(response.parties().getFirst().minParticipants()).isEqualTo(2);
         assertThat(response.parties().getFirst().dormitory()).isEqualTo("1기숙사");
     }
 
@@ -155,6 +199,7 @@ class DeliveryPartyServiceTest {
         when(projection.getTitle()).thenReturn("치킨 같이 시켜요");
         when(projection.getCategory()).thenReturn("치킨");
         when(projection.getCurrentParticipants()).thenReturn(2L);
+        when(projection.getMinParticipants()).thenReturn(2);
         when(projection.getMaxParticipants()).thenReturn(4);
         when(projection.getStatus()).thenReturn("RECRUITING");
         when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
@@ -170,6 +215,7 @@ class DeliveryPartyServiceTest {
         assertThat(response.parties().getFirst().status()).isEqualTo("RECRUITING");
         assertThat(response.parties().getFirst().category()).isEqualTo("치킨");
         assertThat(response.parties().getFirst().currentParticipants()).isEqualTo(2);
+        assertThat(response.parties().getFirst().minParticipants()).isEqualTo(2);
     }
 
     @Test

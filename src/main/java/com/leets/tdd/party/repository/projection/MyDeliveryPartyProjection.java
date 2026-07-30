@@ -7,6 +7,7 @@ public interface MyDeliveryPartyProjection {
     String getTitle();
     String getCategory();
     Long getCurrentParticipants();
+    Integer getMinParticipants();
     Integer getMaxParticipants();
     String getStatus();
     LocalDateTime getOrderExpectedAt();
