@@ -126,7 +126,7 @@ class DeliveryPartyServiceTest {
                 .isEqualTo("RECRUITING");
         assertThat(response.getLeaderNickname()).isEqualTo("방장");
         assertThat(response.getLeaderProfileImage()).isEqualTo("https://example.com/leader.png");
-        assertThat(response.getLeaderMannerTemperature()).isEqualByComparingTo("36.5");
+        assertThat(response.getLeaderMannerTemperature()).isEqualByComparingTo("3.0");
         assertThat(response.getDormitory()).isEqualTo("1기숙사");
     }
 
@@ -165,8 +165,8 @@ class DeliveryPartyServiceTest {
         PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(10L);
 
         assertThat(response.participants()).hasSize(2);
-        assertThat(response.participants().get(0).mannerTemperature()).isEqualByComparingTo("36.5");
-        assertThat(response.participants().get(1).mannerTemperature()).isEqualByComparingTo("36.5");
+        assertThat(response.participants().get(0).mannerTemperature()).isEqualByComparingTo("3.0");
+        assertThat(response.participants().get(1).mannerTemperature()).isEqualByComparingTo("3.0");
     }
 
     @Test
