@@ -32,7 +32,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
-    private static final BigDecimal DEFAULT_MANNER_TEMPERATURE = new BigDecimal("36.5");
+    private static final BigDecimal DEFAULT_MANNER_TEMPERATURE = new BigDecimal("3.0");
+    private static final BigDecimal MIN_MANNER_TEMPERATURE = BigDecimal.ZERO;
+    private static final BigDecimal MAX_MANNER_TEMPERATURE = new BigDecimal("10.0");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -212,9 +214,16 @@ public class User {
     }
 
     // develop의 정산/후기 기능(ReviewServiceImpl)에서 매너온도 갱신에 사용.
+    // 0.0~10.0 범위를 벗어나지 않도록 clamp한다(연속 저평가/고평가로 범위를 벗어나는 것을 방지).
     // updatedAt은 @PreUpdate가 flush 시 자동으로 갱신해주니 여기서 따로 안 건드림.
     public void updateMannerTemperature(BigDecimal delta) {
-        this.mannerTemperature = this.mannerTemperature.add(delta);
+        BigDecimal updated = this.mannerTemperature.add(delta);
+        if (updated.compareTo(MIN_MANNER_TEMPERATURE) < 0) {
+            updated = MIN_MANNER_TEMPERATURE;
+        } else if (updated.compareTo(MAX_MANNER_TEMPERATURE) > 0) {
+            updated = MAX_MANNER_TEMPERATURE;
+        }
+        this.mannerTemperature = updated;
     }
 
     // 마이페이지 > 알림 설정에서 전체 알림 on/off 토글에 사용. MVP는 카테고리 구분 없이
