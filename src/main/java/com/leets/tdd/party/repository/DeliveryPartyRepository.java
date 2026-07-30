@@ -27,6 +27,7 @@ public interface DeliveryPartyRepository extends JpaRepository<DeliveryParty, Lo
              fc.name AS category,
              (SELECT COUNT(*) FROM party_participants current_pp
                WHERE current_pp.party_id = dp.id AND current_pp.status = 'JOINED') AS currentParticipants,
+             dp.min_participants AS minParticipants,
              dp.max_participants AS maxParticipants,
              dp.status AS status,
              dp.order_expected_at AS orderExpectedAt,

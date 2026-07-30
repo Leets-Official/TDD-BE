@@ -7,6 +7,7 @@ public record MyDeliveryPartyResponse(
         String title,
         String category,
         Integer currentParticipants,
+        Integer minParticipants,
         Integer maxParticipants,
         String status,
         LocalDateTime orderExpectedAt,
