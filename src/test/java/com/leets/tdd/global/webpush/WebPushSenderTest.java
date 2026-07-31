@@ -1,5 +1,6 @@
 package com.leets.tdd.global.webpush;
 
+import com.leets.tdd.notification.repository.NotificationRepository;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import nl.martijndwars.webpush.Notification;
@@ -25,6 +26,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECPoint;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +44,9 @@ class WebPushSenderTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private NotificationRepository notificationRepository;
 
     @InjectMocks
     private WebPushSender webPushSender;
@@ -167,5 +172,44 @@ class WebPushSenderTest {
         assertThat(user.getPushAuthKey()).isNull();
         verify(userRepository).save(user);
     }
-}
 
+    @Test
+    @DisplayName("발송과 함께 알림 이력을 notifications에 저장한다")
+    void sendToUser_savesNotification() throws Exception {
+        User user = newUser("https://push.example.com/ep", VALID_P256DH, VALID_AUTH, true);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        stubSendWithStatus(201);
+
+        webPushSender.sendToUser(USER_ID, payload);
+
+        verify(notificationRepository, times(1))
+                .save(any(com.leets.tdd.notification.domain.Notification.class));
+    }
+
+    @Test
+    @DisplayName("웹푸시 구독이 없는 유저에게도 알림 이력은 저장한다")
+    void sendToUser_noSubscription_stillSavesNotification() throws Exception {
+        User user = newUser(null, null, null, true);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
+        webPushSender.sendToUser(USER_ID, payload);
+
+        // 발송은 스킵되지만 이력은 저장돼야 한다
+        verify(pushService, never()).send(any(Notification.class));
+        verify(notificationRepository, times(1))
+                .save(any(com.leets.tdd.notification.domain.Notification.class));
+    }
+
+    @Test
+    @DisplayName("여러 사용자에게 보낼 때 각각 알림 이력을 저장한다")
+    void sendToUsers_savesForEach() throws Exception {
+        User user = newUser("https://push.example.com/ep", VALID_P256DH, VALID_AUTH, true);
+        when(userRepository.findById(any())).thenReturn(Optional.of(user));
+        stubSendWithStatus(201);
+
+        webPushSender.sendToUsers(List.of(1L, 2L, 3L), payload);
+
+        verify(notificationRepository, times(3))
+                .save(any(com.leets.tdd.notification.domain.Notification.class));
+    }
+}
