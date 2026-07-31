@@ -13,6 +13,8 @@ public class CreateDeliveryPartyResponse {
 
     private Long foodCategoryId;
 
+    private String dormitory;
+
     private String title;
 
     private String description;

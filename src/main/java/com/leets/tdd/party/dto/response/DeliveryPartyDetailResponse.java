@@ -3,7 +3,6 @@ package com.leets.tdd.party.dto.response;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import com.leets.tdd.party.domain.DeliveryParty;
-import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
 import lombok.Getter;
 
@@ -25,13 +24,13 @@ public class DeliveryPartyDetailResponse {
     private final String status;
     private final LocalDateTime createdAt;
 
-    public DeliveryPartyDetailResponse(DeliveryParty deliveryParty, User leader, Dormitory dormitory) {
+    public DeliveryPartyDetailResponse(DeliveryParty deliveryParty, User leader) {
         this.id = deliveryParty.getId();
         this.creatorId = deliveryParty.getCreatorId();
         this.leaderNickname = leader.getNickname();
         this.leaderProfileImage = leader.getProfileImageUrl();
         this.leaderMannerTemperature = leader.getMannerTemperature();
-        this.dormitory = dormitory != null ? dormitory.getDormitory() : null;
+        this.dormitory = deliveryParty.getDormitory();
         this.foodCategoryId = deliveryParty.getFoodCategoryId();
         this.title = deliveryParty.getTitle();
         this.description = deliveryParty.getDescription();

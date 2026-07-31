@@ -23,6 +23,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -50,7 +51,11 @@ public class DeliveryPartyController {
 
 
     // 배달팟 생성 API
-    @Operation(summary = "배달팟 생성", description = "로그인한 사용자가 배달팟을 생성하고 방장 및 첫 번째 참여자로 등록됩니다.")
+    @Operation(
+            summary = "배달팟 생성",
+            description = "로그인한 사용자가 배달팟을 생성하고 방장 및 첫 번째 참여자로 등록됩니다. "
+                    + "기숙사는 1기숙사, 2기숙사, 3기숙사 중 하나를 필수로 선택합니다."
+    )
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "배달팟 생성 성공"),
@@ -61,7 +66,7 @@ public class DeliveryPartyController {
     })
     @PostMapping
     public ResponseEntity<CreateDeliveryPartyResponse> createDeliveryParty(
-            @RequestBody CreateDeliveryPartyRequest request,
+            @Valid @RequestBody CreateDeliveryPartyRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         CreateDeliveryPartyResponse response =
@@ -75,7 +80,7 @@ public class DeliveryPartyController {
 
     @Operation(
             summary = "메인 배달팟 목록 조회",
-            description = "모집 중인 배달팟을 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+            description = "모집 중인 배달팟을 카테고리, 배달팟 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 목록 조회 성공"),
@@ -97,7 +102,7 @@ public class DeliveryPartyController {
 
     @Operation(
             summary = "내 배달팟 목록 조회",
-            description = "참여 중인 배달팟을 상태, 카테고리, 파티장 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
+            description = "참여 중인 배달팟을 상태, 카테고리, 배달팟 기숙사, 주문 예정 시간으로 필터링해 조회합니다."
     )
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
@@ -138,7 +143,7 @@ public class DeliveryPartyController {
 
 
     // 배달팟 상세 조회 API
-    @Operation(summary = "배달팟 상세 조회", description = "배달팟의 상세 정보와 현재 상태를 조회합니다.")
+    @Operation(summary = "배달팟 상세 조회", description = "배달팟의 상세 정보, 선택된 기숙사 위치와 현재 상태를 조회합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 상세 조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),

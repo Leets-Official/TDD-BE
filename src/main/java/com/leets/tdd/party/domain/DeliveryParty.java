@@ -36,6 +36,9 @@ public class DeliveryParty {
   @Column(name = "food_category_id", nullable = false)
   private Long foodCategoryId;
 
+  @Column(length = 20)
+  private String dormitory;
+
   @Column(nullable = false, length = 100)
   private String title;
 
@@ -94,8 +97,47 @@ public class DeliveryParty {
           LocalDateTime createdAt,
           LocalDateTime updatedAt
   ) {
+    this(
+        creatorId,
+        foodCategoryId,
+        null,
+        title,
+        description,
+        minParticipants,
+        maxParticipants,
+        orderExpectedAt,
+        status,
+        closedAt,
+        settlementStatus,
+        settlementTotalAmount,
+        settlementRequestedAt,
+        settlementBankAccountId,
+        createdAt,
+        updatedAt
+    );
+  }
+
+  public DeliveryParty(
+          Long creatorId,
+          Long foodCategoryId,
+          String dormitory,
+          String title,
+          String description,
+          Integer minParticipants,
+          Integer maxParticipants,
+          LocalDateTime orderExpectedAt,
+          PartyStatus status,
+          LocalDateTime closedAt,
+          SettlementStatus settlementStatus,
+          Integer settlementTotalAmount,
+          LocalDateTime settlementRequestedAt,
+          Long settlementBankAccountId,
+          LocalDateTime createdAt,
+          LocalDateTime updatedAt
+  ) {
     this.creatorId = creatorId;
     this.foodCategoryId = foodCategoryId;
+    this.dormitory = dormitory;
     this.title = title;
     this.description = description;
     this.minParticipants = minParticipants;
