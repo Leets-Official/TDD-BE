@@ -38,6 +38,15 @@ public class SettlementController {
 
   private final SettlementService settlementService;
 
+  @GetMapping("/users/me/bank-account")
+  @Operation(summary = "내 계좌 조회", description = "마이페이지에서 등록된 본인 계좌 정보를 조회합니다. 등록된 계좌가 없으면 data는 null입니다.")
+  public ResponseEntity<ApiResponse<BankAccountResponse>> getBankAccount(
+      @AuthenticationPrincipal UserPrincipal userPrincipal
+  ) {
+    BankAccountResponse response = settlementService.getBankAccount(currentUserId(userPrincipal));
+    return ResponseEntity.ok(ApiResponse.success("계좌 정보를 조회했습니다.", response));
+  }
+
   @PostMapping("/users/me/bank-account")
   @Operation(summary = "계좌 등록", description = "마이페이지에서 정산받을/보낼 본인 명의 계좌를 등록합니다. 이미 등록된 계좌가 있으면 실패합니다.")
   public ResponseEntity<ApiResponse<BankAccountResponse>> registerBankAccount(

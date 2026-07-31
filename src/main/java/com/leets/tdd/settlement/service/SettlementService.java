@@ -11,6 +11,8 @@ import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
 
 public interface SettlementService {
 
+  BankAccountResponse getBankAccount(Long currentUserId);
+
   BankAccountResponse registerBankAccount(Long currentUserId, RegisterBankAccountRequest request);
 
   BankAccountResponse updateBankAccount(Long currentUserId, RegisterBankAccountRequest request);

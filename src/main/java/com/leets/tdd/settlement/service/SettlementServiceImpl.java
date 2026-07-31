@@ -53,6 +53,13 @@ public class SettlementServiceImpl implements SettlementService {
   private final SettlementNotifier settlementNotifier;
 
   @Override
+  public BankAccountResponse getBankAccount(Long currentUserId) {
+    return bankAccountRepository.findByUserId(currentUserId)
+        .map(this::toBankAccountResponse)
+        .orElse(null);
+  }
+
+  @Override
   @Transactional
   public BankAccountResponse registerBankAccount(Long currentUserId, RegisterBankAccountRequest request) {
     if (bankAccountRepository.findByUserId(currentUserId).isPresent()) {

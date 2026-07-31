@@ -60,6 +60,27 @@ class SettlementServiceImplTest {
   private SettlementServiceImpl settlementService;
 
   @Test
+  void 등록된_계좌를_조회한다() {
+    BankAccount account = new BankAccount(1L, "국민은행", "123456123456", "가나다");
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(account));
+
+    BankAccountResponse response = settlementService.getBankAccount(1L);
+
+    assertThat(response.bankName()).isEqualTo("국민은행");
+    assertThat(response.accountNumber()).isEqualTo("123456******");
+    assertThat(response.accountHolder()).isEqualTo("가나다");
+  }
+
+  @Test
+  void 등록된_계좌가_없으면_null을_반환한다() {
+    given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.empty());
+
+    BankAccountResponse response = settlementService.getBankAccount(1L);
+
+    assertThat(response).isNull();
+  }
+
+  @Test
   void 계좌를_등록한다() {
     given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.empty());
 
