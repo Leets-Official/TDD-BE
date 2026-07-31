@@ -52,7 +52,7 @@ class ChatServiceTest {
     void saveMessage_accessDenied_notSaved() {
         DeliveryParty party = partyWithStatus(PartyStatus.CANCELED);
         when(deliveryPartyRepository.findWithLockById(PARTY_ID)).thenReturn(Optional.of(party));
-        doThrow(new IllegalArgumentException("종료된 배달팟에서는 채팅을 보낼 수 없습니다."))
+        doThrow(new IllegalArgumentException("종료된 배달팟에서는 채팅을 이용할 수 없습니다."))
                 .when(chatAuthValidator).validateChatAccess(party, CREATOR_ID);
 
         assertThatThrownBy(() -> chatService.saveMessage(
@@ -61,7 +61,7 @@ class ChatServiceTest {
                 CREATOR_ID,
                 new ChatMessageRequest(MessageType.USER, "안녕하세요", null)
         )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+                .hasMessage("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
 
         verify(chatMessageRepository, never()).save(any());
     }

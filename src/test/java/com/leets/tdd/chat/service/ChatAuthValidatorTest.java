@@ -96,7 +96,7 @@ class ChatAuthValidatorTest {
 
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, CREATOR_ID))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+                .hasMessage("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
     }
 
     @Test
@@ -107,6 +107,6 @@ class ChatAuthValidatorTest {
 
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, PARTICIPANT_ID))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+                .hasMessage("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
     }
 }

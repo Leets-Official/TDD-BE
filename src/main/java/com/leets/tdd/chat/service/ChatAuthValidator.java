@@ -40,7 +40,7 @@ public class ChatAuthValidator {
      */
     public void validateChatAccess(DeliveryParty party, Long userId) {
         if (party.getStatus() == PartyStatus.CANCELED || party.getStatus() == PartyStatus.COMPLETED) {
-            throw new IllegalArgumentException("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+            throw new IllegalArgumentException("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
         }
         if (party.getCreatorId().equals(userId)) {
             return;
