@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.leets'
-version = '0.0.1-SNAPSHOT'
+version = '0.2.0'
 description = 'TDD-BE'
 
 java {
@@ -16,6 +16,18 @@ java {
 
 repositories {
     mavenCentral()
+}
+
+// nl.martijndwars:web-push:5.1.1이 취약한 async-http-client:2.10.4를 끌어온다(라이브러리 자체는
+// 2020년 5.1.1 이후 신규 릴리즈가 없다). 같은 2.x 라인의 패치 버전인 2.12.4로 고정해 CVE를 해소한다.
+// eachDependency로 group 전체(async-http-client, async-http-client-netty-utils 등)를 함께 승격한다.
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'org.asynchttpclient') {
+            details.useVersion('2.12.4')
+            details.because('CVE fix: force patched async-http-client (web-push 5.1.1 transitive)')
+        }
+    }
 }
 
 dependencies {
@@ -49,6 +61,11 @@ dependencies {
     // AWS SDK의 기본 자격 증명 체인이 운영에서 IAM Role을 자동으로 선택한다.
     implementation platform('software.amazon.awssdk:bom:2.31.78')
     implementation 'software.amazon.awssdk:s3'
+
+    // Web Push (웹푸시 알림 발송)
+    // VAPID 서명 + 페이로드 암호화(ECDH/HKDF)를 처리한다. BouncyCastle이 암호화 provider로 필요하다.
+    implementation 'nl.martijndwars:web-push:5.1.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'

@@ -1,5 +1,6 @@
 package com.leets.tdd.settlement.controller;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.leets.tdd.global.jwt.UserPrincipal;
+import com.leets.tdd.settlement.dto.response.BankAccountResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementListResponse;
 import com.leets.tdd.settlement.dto.response.MySettlementSummaryResponse;
 import com.leets.tdd.settlement.dto.response.SettlementDetailResponse;
@@ -36,6 +38,30 @@ class SettlementControllerTest {
 
   @MockitoBean
   private SettlementService settlementService;
+
+  @Test
+  void 내_계좌를_조회한다() throws Exception {
+    given(settlementService.getBankAccount(1L)).willReturn(
+        new BankAccountResponse("국민은행", "123456******", "가나다")
+    );
+
+    mockMvc.perform(get("/api/v1/users/me/bank-account").with(user(1L)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data.bankName").value("국민은행"))
+        .andExpect(jsonPath("$.data.accountNumber").value("123456******"))
+        .andExpect(jsonPath("$.data.accountHolder").value("가나다"));
+  }
+
+  @Test
+  void 등록된_계좌가_없으면_null을_반환한다() throws Exception {
+    given(settlementService.getBankAccount(1L)).willReturn(null);
+
+    mockMvc.perform(get("/api/v1/users/me/bank-account").with(user(1L)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data").value(nullValue()));
+  }
 
   @Test
   void 정산_요청을_생성한다() throws Exception {
