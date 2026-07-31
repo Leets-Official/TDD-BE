@@ -2,6 +2,7 @@ package com.leets.tdd.chat.service;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
+import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -84,5 +85,29 @@ class ChatAuthValidatorTest {
 
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, OUTSIDER_ID))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("취소된 팟에서는 방장도 채팅 전송이 거부된다")
+    void validateChatAccess_canceledParty_denied() {
+        DeliveryParty party = partyWithCreator(CREATOR_ID);
+        ReflectionTestUtils.setField(party, "status", PartyStatus.CANCELED);
+        when(deliveryPartyRepository.findById(PARTY_ID)).thenReturn(Optional.of(party));
+
+        assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, CREATOR_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("배달 완료된 팟에서는 참여자 채팅 전송이 거부된다")
+    void validateChatAccess_completedParty_denied() {
+        DeliveryParty party = partyWithCreator(CREATOR_ID);
+        ReflectionTestUtils.setField(party, "status", PartyStatus.COMPLETED);
+        when(deliveryPartyRepository.findById(PARTY_ID)).thenReturn(Optional.of(party));
+
+        assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, PARTICIPANT_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
     }
 }
