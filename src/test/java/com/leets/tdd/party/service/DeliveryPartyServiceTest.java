@@ -32,9 +32,7 @@ import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.party.repository.projection.RecruitingDeliveryPartyProjection;
 import com.leets.tdd.settlement.domain.SettlementStatus;
-import com.leets.tdd.user.domain.Dormitory;
 import com.leets.tdd.user.domain.User;
-import com.leets.tdd.user.repository.DormitoryRepository;
 import com.leets.tdd.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -63,9 +61,6 @@ class DeliveryPartyServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private DormitoryRepository dormitoryRepository;
-
-    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @Mock
@@ -78,6 +73,7 @@ class DeliveryPartyServiceTest {
     void 배달팟_생성시_로그인한_사용자를_방장과_첫_참여자로_등록한다() {
         CreateDeliveryPartyRequest request = new CreateDeliveryPartyRequest();
         ReflectionTestUtils.setField(request, "foodCategoryId", 1L);
+        ReflectionTestUtils.setField(request, "dormitory", "1기숙사");
         ReflectionTestUtils.setField(request, "title", "치킨 같이 시켜요");
         ReflectionTestUtils.setField(request, "minParticipants", 2);
         ReflectionTestUtils.setField(request, "maxParticipants", 4);
@@ -96,6 +92,7 @@ class DeliveryPartyServiceTest {
         verify(deliveryPartyRepository).save(partyCaptor.capture());
         verify(partyParticipantRepository).save(participantCaptor.capture());
         assertThat(partyCaptor.getValue().getCreatorId()).isEqualTo(2L);
+        assertThat(partyCaptor.getValue().getDormitory()).isEqualTo("1기숙사");
         assertThat(participantCaptor.getValue().getPartyId()).isEqualTo(15L);
         assertThat(participantCaptor.getValue().getUserId()).isEqualTo(2L);
         assertThat(participantCaptor.getValue().getRole()).isEqualTo(PartyParticipantRole.HOST);
@@ -138,9 +135,8 @@ class DeliveryPartyServiceTest {
         );
         leader.updateProfile("방장", "https://example.com/leader.png");
         ReflectionTestUtils.setField(leader, "id", 1L);
-        Dormitory dormitory = new Dormitory(1L, "1기숙사", null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(leader));
-        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.of(dormitory));
+        ReflectionTestUtils.setField(deliveryParty, "dormitory", "1기숙사");
 
 
         // when

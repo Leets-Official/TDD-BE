@@ -40,15 +40,14 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
              dp.max_participants AS maxParticipants,
              dp.status AS status,
              dp.order_expected_at AS orderExpectedAt,
-             dorm.dormitory AS dormitory
+             dp.dormitory AS dormitory
         FROM party_participants pp
         JOIN delivery_parties dp ON dp.id = pp.party_id
         JOIN food_categories fc ON fc.id = dp.food_category_id
-        LEFT JOIN dormitory dorm ON dorm.user_id = dp.creator_id
        WHERE pp.user_id = :userId
          AND pp.status = 'JOINED'
          AND (:categoryId IS NULL OR dp.food_category_id = :categoryId)
-         AND (:dormitory IS NULL OR dorm.dormitory = :dormitory)
+         AND (:dormitory IS NULL OR dp.dormitory = :dormitory)
          AND (:orderExpectedFrom IS NULL OR dp.order_expected_at >= :orderExpectedFrom)
          AND (:orderExpectedTo IS NULL OR dp.order_expected_at <= :orderExpectedTo)
          AND (:status = 'ALL'

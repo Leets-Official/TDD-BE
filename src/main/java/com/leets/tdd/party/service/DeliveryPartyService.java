@@ -31,8 +31,6 @@ import com.leets.tdd.party.repository.FoodCategoryRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.settlement.domain.SettlementStatus;
 import com.leets.tdd.user.domain.User;
-import com.leets.tdd.user.domain.Dormitory;
-import com.leets.tdd.user.repository.DormitoryRepository;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -52,7 +50,6 @@ public class DeliveryPartyService {
 
     private final DeliveryPartyRepository deliveryPartyRepository;
     private final UserRepository userRepository;
-    private final DormitoryRepository dormitoryRepository;
     private final FoodCategoryRepository foodCategoryRepository;
     private final PartyParticipantRepository partyParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -69,6 +66,7 @@ public class DeliveryPartyService {
         DeliveryParty deliveryParty = new DeliveryParty(
                 currentUserId,
                 request.getFoodCategoryId(),
+                request.getDormitory(),
                 request.getTitle(),
                 request.getDescription(),
                 request.getMinParticipants(),
@@ -96,6 +94,7 @@ public class DeliveryPartyService {
         return new CreateDeliveryPartyResponse(
                 savedDeliveryParty.getId(),
                 savedDeliveryParty.getFoodCategoryId(),
+                savedDeliveryParty.getDormitory(),
                 savedDeliveryParty.getTitle(),
                 savedDeliveryParty.getDescription(),
                 savedDeliveryParty.getMinParticipants(),
@@ -117,6 +116,7 @@ public class DeliveryPartyService {
                 .map(deliveryParty -> new CreateDeliveryPartyResponse(
                         deliveryParty.getId(),
                         deliveryParty.getFoodCategoryId(),
+                        deliveryParty.getDormitory(),
                         deliveryParty.getTitle(),
                         deliveryParty.getDescription(),
                         deliveryParty.getMinParticipants(),
@@ -166,10 +166,7 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
         User leader = userRepository.findById(deliveryParty.getCreatorId())
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED));
-        Dormitory dormitory = dormitoryRepository.findByUserId(deliveryParty.getCreatorId())
-                .orElse(null);
-
-        return new DeliveryPartyDetailResponse(deliveryParty, leader, dormitory);
+        return new DeliveryPartyDetailResponse(deliveryParty, leader);
     }
 
     @Transactional(readOnly = true)

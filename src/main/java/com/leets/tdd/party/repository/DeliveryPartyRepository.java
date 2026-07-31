@@ -31,13 +31,12 @@ public interface DeliveryPartyRepository extends JpaRepository<DeliveryParty, Lo
              dp.max_participants AS maxParticipants,
              dp.status AS status,
              dp.order_expected_at AS orderExpectedAt,
-             dorm.dormitory AS dormitory
+             dp.dormitory AS dormitory
         FROM delivery_parties dp
         JOIN food_categories fc ON fc.id = dp.food_category_id
-        LEFT JOIN dormitory dorm ON dorm.user_id = dp.creator_id
        WHERE dp.status = 'RECRUITING'
          AND (:categoryId IS NULL OR dp.food_category_id = :categoryId)
-         AND (:dormitory IS NULL OR dorm.dormitory = :dormitory)
+         AND (:dormitory IS NULL OR dp.dormitory = :dormitory)
          AND (:orderExpectedFrom IS NULL OR dp.order_expected_at >= :orderExpectedFrom)
          AND (:orderExpectedTo IS NULL OR dp.order_expected_at <= :orderExpectedTo)
        ORDER BY dp.created_at DESC
