@@ -14,6 +14,7 @@ import com.leets.tdd.party.domain.PartyParticipantRole;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.dto.MyPartyStatusFilter;
+import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
@@ -72,6 +73,35 @@ class DeliveryPartyServiceTest {
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
+
+    @Test
+    void 배달팟_생성시_로그인한_사용자를_방장과_첫_참여자로_등록한다() {
+        CreateDeliveryPartyRequest request = new CreateDeliveryPartyRequest();
+        ReflectionTestUtils.setField(request, "foodCategoryId", 1L);
+        ReflectionTestUtils.setField(request, "title", "치킨 같이 시켜요");
+        ReflectionTestUtils.setField(request, "minParticipants", 2);
+        ReflectionTestUtils.setField(request, "maxParticipants", 4);
+        ReflectionTestUtils.setField(request, "orderExpectedAt", LocalDateTime.of(2026, 8, 1, 19, 0));
+        when(deliveryPartyRepository.save(org.mockito.ArgumentMatchers.any(DeliveryParty.class)))
+                .thenAnswer(invocation -> {
+                    DeliveryParty party = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(party, "id", 15L);
+                    return party;
+                });
+
+        deliveryPartyService.createDeliveryParty(request, 2L);
+
+        ArgumentCaptor<DeliveryParty> partyCaptor = ArgumentCaptor.forClass(DeliveryParty.class);
+        ArgumentCaptor<PartyParticipant> participantCaptor = ArgumentCaptor.forClass(PartyParticipant.class);
+        verify(deliveryPartyRepository).save(partyCaptor.capture());
+        verify(partyParticipantRepository).save(participantCaptor.capture());
+        assertThat(partyCaptor.getValue().getCreatorId()).isEqualTo(2L);
+        assertThat(participantCaptor.getValue().getPartyId()).isEqualTo(15L);
+        assertThat(participantCaptor.getValue().getUserId()).isEqualTo(2L);
+        assertThat(participantCaptor.getValue().getRole()).isEqualTo(PartyParticipantRole.HOST);
+        assertThat(participantCaptor.getValue().getStatus()).isEqualTo(PartyParticipantStatus.JOINED);
+        verifyNoInteractions(userRepository);
+    }
 
 
     @Test
@@ -153,18 +183,23 @@ class DeliveryPartyServiceTest {
         User member = new User("member@test.com", "참여자", "password", "", LocalDateTime.now());
         ReflectionTestUtils.setField(owner, "id", 1L);
         ReflectionTestUtils.setField(member, "id", 2L);
+        PartyParticipant joinedOwner = new PartyParticipant(
+                10L, 1L, PartyParticipantRole.HOST, PartyParticipantStatus.JOINED, LocalDateTime.now()
+        );
         PartyParticipant joinedMember = new PartyParticipant(
                 10L, 2L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now()
         );
         when(deliveryPartyRepository.findById(10L)).thenReturn(Optional.of(deliveryParty));
         when(partyParticipantRepository.findAllByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
-                .thenReturn(java.util.List.of(joinedMember));
+                .thenReturn(java.util.List.of(joinedMember, joinedOwner));
         when(userRepository.findAllByIdIn(java.util.List.of(2L, 1L)))
                 .thenReturn(java.util.List.of(owner, member));
 
         PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(10L);
 
         assertThat(response.participants()).hasSize(2);
+        assertThat(response.participants().get(0).role()).isEqualTo("OWNER");
+        assertThat(response.participants().get(1).role()).isEqualTo("MEMBER");
         assertThat(response.participants().get(0).mannerTemperature()).isEqualByComparingTo("3.0");
         assertThat(response.participants().get(1).mannerTemperature()).isEqualByComparingTo("3.0");
     }
@@ -183,11 +218,11 @@ class DeliveryPartyServiceTest {
         when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
         when(projection.getDormitory()).thenReturn("1기숙사");
         when(partyParticipantRepository.findMyDeliveryParties(
-                1L, "ONGOING", 1L, 2L, null, null
+                1L, "ONGOING", 1L, "1기숙사", null, null
         )).thenReturn(java.util.List.of(projection));
 
         MyDeliveryPartyListResponse response = deliveryPartyService.getMyDeliveryParties(
-                1L, MyPartyStatusFilter.ONGOING, 1L, 2L, null, null
+                1L, MyPartyStatusFilter.ONGOING, 1L, "1기숙사", null, null
         );
 
         assertThat(response.parties()).hasSize(1);
@@ -212,11 +247,11 @@ class DeliveryPartyServiceTest {
         when(projection.getStatus()).thenReturn("RECRUITING");
         when(projection.getOrderExpectedAt()).thenReturn(orderExpectedAt);
         when(projection.getDormitory()).thenReturn("1기숙사");
-        when(deliveryPartyRepository.findRecruitingDeliveryParties(1L, 2L, null, null))
+        when(deliveryPartyRepository.findRecruitingDeliveryParties(1L, "1기숙사", null, null))
                 .thenReturn(java.util.List.of(projection));
 
         RecruitingDeliveryPartyListResponse response = deliveryPartyService.getRecruitingDeliveryParties(
-                1L, 2L, null, null
+                1L, "1기숙사", null, null
         );
 
         assertThat(response.parties()).hasSize(1);

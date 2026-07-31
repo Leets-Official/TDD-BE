@@ -37,14 +37,14 @@ public interface DeliveryPartyRepository extends JpaRepository<DeliveryParty, Lo
         LEFT JOIN dormitory dorm ON dorm.user_id = dp.creator_id
        WHERE dp.status = 'RECRUITING'
          AND (:categoryId IS NULL OR dp.food_category_id = :categoryId)
-         AND (:dormitoryId IS NULL OR dorm.id = :dormitoryId)
+         AND (:dormitory IS NULL OR dorm.dormitory = :dormitory)
          AND (:orderExpectedFrom IS NULL OR dp.order_expected_at >= :orderExpectedFrom)
          AND (:orderExpectedTo IS NULL OR dp.order_expected_at <= :orderExpectedTo)
        ORDER BY dp.created_at DESC
       """, nativeQuery = true)
   List<RecruitingDeliveryPartyProjection> findRecruitingDeliveryParties(
       @Param("categoryId") Long categoryId,
-      @Param("dormitoryId") Long dormitoryId,
+      @Param("dormitory") String dormitory,
       @Param("orderExpectedFrom") LocalDateTime orderExpectedFrom,
       @Param("orderExpectedTo") LocalDateTime orderExpectedTo
   );
