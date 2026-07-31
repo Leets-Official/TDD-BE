@@ -85,4 +85,5 @@ class ChatAuthValidatorTest {
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, OUTSIDER_ID))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
 }

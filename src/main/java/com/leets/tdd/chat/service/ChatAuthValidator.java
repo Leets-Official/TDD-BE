@@ -10,9 +10,6 @@ import org.springframework.stereotype.Component;
 /**
  * 채팅(메시지·이미지) 접근 권한을 검증한다.
  * 해당 팟의 방장(creator)이거나 JOINED 참여자여야 채팅에 접근할 수 있다.
- *
- * 방장은 팟 생성 시 party_participants에 참여자로 등록되지 않으므로(참여는 join API 경로로만 쌓임),
- * 참여자 조회만으로는 방장이 자기 팟 채팅에서 배제된다. 그래서 creatorId를 별도로 인정한다.
  */
 @Component
 @RequiredArgsConstructor
@@ -26,7 +23,8 @@ public class ChatAuthValidator {
      * 권한 = 그 팟의 방장이거나, JOINED 상태의 참여자.
      */
     public void validateChatAccess(Long partyId, Long userId) {
-        if (!hasChatAccess(partyId, userId)) {
+        DeliveryParty party = findParty(partyId);
+        if (!hasChatAccess(party, partyId, userId)) {
             throw new IllegalArgumentException("해당 팟의 참여자만 채팅에 접근할 수 있습니다.");
         }
     }
@@ -35,14 +33,20 @@ public class ChatAuthValidator {
      * 권한 여부를 boolean으로 반환한다(예외 없이 판정만 필요한 경우).
      */
     public boolean hasChatAccess(Long partyId, Long userId) {
-        DeliveryParty party = deliveryPartyRepository.findById(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("배달팟을 찾을 수 없습니다."));
+        DeliveryParty party = findParty(partyId);
+        return hasChatAccess(party, partyId, userId);
+    }
 
-        // 방장은 참여자 row가 없어도 자기 팟 채팅에 접근할 수 있다.
+    private boolean hasChatAccess(DeliveryParty party, Long partyId, Long userId) {
         if (party.getCreatorId().equals(userId)) {
             return true;
         }
         return partyParticipantRepository
                 .existsByPartyIdAndUserIdAndStatus(partyId, userId, PartyParticipantStatus.JOINED);
+    }
+
+    private DeliveryParty findParty(Long partyId) {
+        return deliveryPartyRepository.findById(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("배달팟을 찾을 수 없습니다."));
     }
 }
