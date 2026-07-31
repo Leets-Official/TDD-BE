@@ -82,6 +82,7 @@ public class SecurityConfig {
                         ).authenticated()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/review-tags",
                                 "/api/v1/parties",
                                 "/api/v1/delivery-parties",
                                 "/api/v1/parties/search",
