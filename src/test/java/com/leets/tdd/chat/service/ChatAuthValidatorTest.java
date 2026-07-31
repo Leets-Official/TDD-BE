@@ -2,6 +2,7 @@ package com.leets.tdd.chat.service;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
+import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +17,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,14 +36,16 @@ class ChatAuthValidatorTest {
     private static final Long PARTICIPANT_ID = 20L;
     private static final Long OUTSIDER_ID = 30L;
 
-    // creatorId를 가진 DeliveryParty를 만든다
-    private DeliveryParty partyWithCreator(Long creatorId) {
+    // creatorId와 status를 가진 DeliveryParty를 만든다
+    private DeliveryParty party(Long creatorId, PartyStatus status) {
         try {
             java.lang.reflect.Constructor<DeliveryParty> constructor =
                     DeliveryParty.class.getDeclaredConstructor();
             constructor.setAccessible(true);
             DeliveryParty party = constructor.newInstance();
+            ReflectionTestUtils.setField(party, "id", PARTY_ID);
             ReflectionTestUtils.setField(party, "creatorId", creatorId);
+            ReflectionTestUtils.setField(party, "status", status);
             return party;
         } catch (Exception e) {
             throw new RuntimeException("테스트용 DeliveryParty 생성 실패", e);
@@ -54,7 +56,7 @@ class ChatAuthValidatorTest {
     @DisplayName("팟의 방장은 참여자 row가 없어도 채팅 접근이 허용된다")
     void validateChatAccess_creator_allowed() {
         when(deliveryPartyRepository.findById(PARTY_ID))
-                .thenReturn(Optional.of(partyWithCreator(CREATOR_ID)));
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.CLOSED)));
 
         assertThatCode(() -> chatAuthValidator.validateChatAccess(PARTY_ID, CREATOR_ID))
                 .doesNotThrowAnyException();
@@ -64,7 +66,7 @@ class ChatAuthValidatorTest {
     @DisplayName("JOINED 참여자는 채팅 접근이 허용된다")
     void validateChatAccess_participant_allowed() {
         when(deliveryPartyRepository.findById(PARTY_ID))
-                .thenReturn(Optional.of(partyWithCreator(CREATOR_ID)));
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.CLOSED)));
         when(partyParticipantRepository
                 .existsByPartyIdAndUserIdAndStatus(PARTY_ID, PARTICIPANT_ID, PartyParticipantStatus.JOINED))
                 .thenReturn(true);
@@ -77,7 +79,7 @@ class ChatAuthValidatorTest {
     @DisplayName("방장도 참여자도 아니면 채팅 접근이 거부된다")
     void validateChatAccess_outsider_denied() {
         when(deliveryPartyRepository.findById(PARTY_ID))
-                .thenReturn(Optional.of(partyWithCreator(CREATOR_ID)));
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.CLOSED)));
         when(partyParticipantRepository
                 .existsByPartyIdAndUserIdAndStatus(PARTY_ID, OUTSIDER_ID, PartyParticipantStatus.JOINED))
                 .thenReturn(false);
@@ -86,4 +88,25 @@ class ChatAuthValidatorTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    @DisplayName("취소된 팟에서는 방장이어도 채팅 접근이 거부된다")
+    void validateChatAccess_canceledParty_denied() {
+        when(deliveryPartyRepository.findById(PARTY_ID))
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.CANCELED)));
+
+        assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, CREATOR_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("완료된 팟에서는 참여자여도 채팅 접근이 거부된다")
+    void validateChatAccess_completedParty_denied() {
+        when(deliveryPartyRepository.findById(PARTY_ID))
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.COMPLETED)));
+
+        assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, PARTICIPANT_ID))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+    }
 }
