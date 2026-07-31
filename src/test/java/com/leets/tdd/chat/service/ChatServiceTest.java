@@ -8,7 +8,6 @@ import com.leets.tdd.chat.dto.ChatMessageRequest;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
-import com.leets.tdd.party.repository.PartyParticipantRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +20,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -39,7 +39,7 @@ class ChatServiceTest {
     private DeliveryPartyRepository deliveryPartyRepository;
 
     @Mock
-    private PartyParticipantRepository partyParticipantRepository;
+    private ChatAuthValidator chatAuthValidator;
 
     @InjectMocks
     private ChatService chatService;
@@ -48,10 +48,12 @@ class ChatServiceTest {
     private static final Long CREATOR_ID = 10L;
 
     @Test
-    @DisplayName("취소된 팟에서는 방장의 메시지 저장이 거부된다")
-    void saveMessage_canceledParty_denied() {
-        when(deliveryPartyRepository.findWithLockById(PARTY_ID))
-                .thenReturn(Optional.of(partyWithStatus(PartyStatus.CANCELED)));
+    @DisplayName("채팅 접근 권한 검증에서 막히면 메시지를 저장하지 않는다")
+    void saveMessage_accessDenied_notSaved() {
+        DeliveryParty party = partyWithStatus(PartyStatus.CANCELED);
+        when(deliveryPartyRepository.findWithLockById(PARTY_ID)).thenReturn(Optional.of(party));
+        doThrow(new IllegalArgumentException("종료된 배달팟에서는 채팅을 이용할 수 없습니다."))
+                .when(chatAuthValidator).validateChatAccess(party, CREATOR_ID);
 
         assertThatThrownBy(() -> chatService.saveMessage(
                 PARTY_ID,
@@ -59,26 +61,29 @@ class ChatServiceTest {
                 CREATOR_ID,
                 new ChatMessageRequest(MessageType.USER, "안녕하세요", null)
         )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+                .hasMessage("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
 
         verify(chatMessageRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("배달 완료된 팟에서는 참여자의 메시지 저장이 거부된다")
-    void saveMessage_completedParty_denied() {
-        when(deliveryPartyRepository.findWithLockById(PARTY_ID))
-                .thenReturn(Optional.of(partyWithStatus(PartyStatus.COMPLETED)));
+    @DisplayName("채팅 접근 권한 검증을 통과하면 메시지를 저장한다")
+    void saveMessage_accessGranted_saved() {
+        DeliveryParty party = partyWithStatus(PartyStatus.CLOSED);
+        when(deliveryPartyRepository.findWithLockById(PARTY_ID)).thenReturn(Optional.of(party));
+        // chatAuthValidator는 기본 mock이라 아무것도 던지지 않음 = 통과
+        when(chatMessageRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThatThrownBy(() -> chatService.saveMessage(
+        chatService.saveMessage(
                 PARTY_ID,
                 1L,
-                20L,
+                CREATOR_ID,
                 new ChatMessageRequest(MessageType.USER, "안녕하세요", null)
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("종료된 배달팟에서는 채팅을 보낼 수 없습니다.");
+        );
 
-        verify(chatMessageRepository, never()).save(any());
+        verify(chatAuthValidator).validateChatAccess(party, CREATOR_ID);
+        verify(chatMessageRepository, times(1)).save(any());
     }
 
     @Test
