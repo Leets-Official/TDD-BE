@@ -96,6 +96,8 @@ jobs:
           CLIENT_ALLOWED_ORIGINS: ${{ secrets.CLIENT_ALLOWED_ORIGINS }}
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_APP_PASSWORD: ${{ secrets.MAIL_APP_PASSWORD }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           S3_PRIVATE_BUCKET: ${{ vars.S3_PRIVATE_BUCKET }}
           S3_PUBLIC_BUCKET: ${{ vars.S3_PUBLIC_BUCKET }}
           S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
@@ -105,7 +107,10 @@ jobs:
             echo "::error::JWT_SECRET is not configured"
             exit 1
           }
-          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION MAIL_USERNAME MAIL_APP_PASSWORD; do
+          # VAPID 키는 application.yaml에 기본값이 없다. 값이 비면 @ConfigurationProperties가
+          # "${VAPID_PUBLIC_KEY}" 문자열을 그대로 바인딩해 PushService 생성이 실패하고,
+          # 앱 전체가 기동하지 못한다(2026-08-01 배포 장애 원인).
+          for name in S3_PRIVATE_BUCKET S3_PUBLIC_BUCKET S3_PUBLIC_BASE_URL AWS_REGION MAIL_USERNAME MAIL_APP_PASSWORD VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY; do
             test -n "${!name}" || {
               echo "::error::$name is not configured"
               exit 1
@@ -120,6 +125,11 @@ jobs:
             printf 'CLIENT_ALLOWED_ORIGINS=%s\n' "$CLIENT_ALLOWED_ORIGINS"
             printf 'MAIL_USERNAME=%s\n' "$MAIL_USERNAME"
             printf 'MAIL_APP_PASSWORD=%s\n' "$MAIL_APP_PASSWORD"
+            # VAPID_SUBJECT는 일부러 넘기지 않는다. 시크릿이 없으면 빈 값이 .env에 들어가고,
+            # docker --env-file은 빈 값도 "설정됨"으로 취급해 application.yaml의
+            # 기본값(mailto:admin@tdd.com)을 덮어써버린다.
+            printf 'VAPID_PUBLIC_KEY=%s\n' "$VAPID_PUBLIC_KEY"
+            printf 'VAPID_PRIVATE_KEY=%s\n' "$VAPID_PRIVATE_KEY"
             printf 'S3_PRIVATE_BUCKET=%s\n' "$S3_PRIVATE_BUCKET"
             printf 'S3_PUBLIC_BUCKET=%s\n' "$S3_PUBLIC_BUCKET"
             printf 'S3_PUBLIC_BASE_URL=%s\n' "$S3_PUBLIC_BASE_URL"
@@ -148,4 +158,26 @@ jobs:
               --env-file '$EC2_DEPLOY_PATH/.env' \
               tdd-api:latest
             docker image prune -f
+          "
+
+      # docker run -d는 컨테이너가 떴다는 것만 보장한다. 앱이 부팅 중 죽어도 배포는 성공으로
+      # 끝나고, --restart unless-stopped 때문에 재시작 루프만 돈다. 실제로 응답하는지까지
+      # 확인해야 "배포 성공인데 API는 죽어 있는" 상태를 배포 단계에서 잡을 수 있다.
+      - name: Verify application health
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -i ~/.ssh/tdd-github-actions "$EC2_USER@$EC2_HOST" "
+            for attempt in \$(seq 1 30); do
+              if curl -fsS -o /dev/null http://127.0.0.1:8080/api/v1/health; then
+                echo '헬스체크 통과'
+                exit 0
+              fi
+              sleep 5
+            done
+            echo '헬스체크 실패 - 150초 안에 /api/v1/health가 응답하지 않았다'
+            docker ps -a --filter name=tdd-api
+            docker logs --tail 100 tdd-api 2>&1 || true
+            exit 1
           "
