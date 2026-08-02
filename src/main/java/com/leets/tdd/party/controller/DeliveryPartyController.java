@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
+@RequestMapping("/api/v1/parties")
 @RequiredArgsConstructor
 @Tag(name = "Delivery Party", description = "배달팟 생성, 조회, 참여 및 상태 변경 API")
 public class DeliveryPartyController {
