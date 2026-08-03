@@ -429,11 +429,13 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.resolveViewUrl("profiles/1/existing.jpg"))
+                .thenReturn("https://assets-public.example.com/profiles/1/existing.jpg");
 
         ProfileUpdateResponse response = userService.updateProfile(
                 1L, updateRequest("새닉네임", "2기숙사", null));
 
-        assertThat(response.profileImageUrl()).isEqualTo("profiles/1/existing.jpg");
+        assertThat(response.profileImageUrl()).isEqualTo("https://assets-public.example.com/profiles/1/existing.jpg");
         assertThat(user.getProfileImageUrl()).isEqualTo("profiles/1/existing.jpg");
     }
 

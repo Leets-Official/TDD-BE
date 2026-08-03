@@ -161,7 +161,8 @@ public class UserService {
             dormitory.changeDormitory(request.dormitory());
         }
 
-        return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+        return new ProfileUpdateResponse(
+                user.getNickname(), dormitory.getDormitory(), resolveProfileImageUrl(user.getProfileImageUrl()));
     }
 
     /**
