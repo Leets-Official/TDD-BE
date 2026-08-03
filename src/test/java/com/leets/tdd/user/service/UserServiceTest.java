@@ -968,7 +968,7 @@ class UserServiceTest {
         when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
-                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+                eq(1L), eq(PartyStatus.DELIVERED), any())).thenReturn(true);
 
         assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
                 .isInstanceOf(UserException.class)
@@ -1005,14 +1005,14 @@ class UserServiceTest {
         when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
-                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+                eq(1L), eq(PartyStatus.DELIVERED), any())).thenReturn(false);
         PartyParticipant participation = new PartyParticipant(
                 10L, 1L, PartyParticipantRole.MEMBER, PartyParticipantStatus.JOINED, LocalDateTime.now());
         when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
                 .thenReturn(List.of(participation));
         when(deliveryPartyRepository.existsByIdInAndStatusIn(eq(List.of(10L)), any())).thenReturn(false);
         when(deliveryPartyRepository.existsByIdInAndStatusAndSettlementStatusNotIn(
-                eq(List.of(10L)), eq(PartyStatus.COMPLETED), any())).thenReturn(true);
+                eq(List.of(10L)), eq(PartyStatus.DELIVERED), any())).thenReturn(true);
 
         assertThatThrownBy(() -> userService.withdraw(1L, new WithdrawalRequest("raw-pw")))
                 .isInstanceOf(UserException.class)
@@ -1029,7 +1029,7 @@ class UserServiceTest {
         when(passwordEncoder.matches("raw-pw", "encoded-pw")).thenReturn(true);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusIn(eq(1L), any())).thenReturn(false);
         when(deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
-                eq(1L), eq(PartyStatus.COMPLETED), any())).thenReturn(false);
+                eq(1L), eq(PartyStatus.DELIVERED), any())).thenReturn(false);
         when(partyParticipantRepository.findAllByUserIdAndStatus(1L, PartyParticipantStatus.JOINED))
                 .thenReturn(List.of());
 

@@ -130,7 +130,7 @@ class ReviewServiceImplTest {
 
   private DeliveryParty completedParty() {
     DeliveryParty party = org.mockito.Mockito.mock(DeliveryParty.class);
-    given(party.getStatus()).willReturn(PartyStatus.COMPLETED);
+    given(party.getStatus()).willReturn(PartyStatus.DELIVERED);
     return party;
   }
 

@@ -391,17 +391,17 @@ public class UserService {
         return deliveryPartyRepository.existsByIdInAndStatusIn(joinedPartyIds, ONGOING_PARTY_STATUSES);
     }
 
-    // COMPLETED인데 정산이 아직 안 끝난 팟이 있는지 (방장 + 참여자 기준)
+    // DELIVERED인데 정산이 아직 안 끝난 팟이 있는지 (방장 + 참여자 기준)
     private boolean hasUnsettledDeliveryParty(Long userId, List<Long> joinedPartyIds) {
         if (deliveryPartyRepository.existsByCreatorIdAndStatusAndSettlementStatusNotIn(
-                userId, PartyStatus.COMPLETED, SETTLEMENT_TERMINAL_STATUSES)) {
+                userId, PartyStatus.DELIVERED, SETTLEMENT_TERMINAL_STATUSES)) {
             return true;
         }
         if (joinedPartyIds.isEmpty()) {
             return false;
         }
         return deliveryPartyRepository.existsByIdInAndStatusAndSettlementStatusNotIn(
-                joinedPartyIds, PartyStatus.COMPLETED, SETTLEMENT_TERMINAL_STATUSES);
+                joinedPartyIds, PartyStatus.DELIVERED, SETTLEMENT_TERMINAL_STATUSES);
     }
 
     private record IssuedTokens(String accessToken, String refreshToken, LocalDateTime refreshTokenExpiresAt) {

@@ -262,11 +262,11 @@ public class DeliveryPartyController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "배달 완료", description = "파티장이 주문 완료된 배달팟을 배달 완료 상태로 변경합니다.")
+    @Operation(summary = "배달 도착", description = "파티장이 주문 완료된 배달팟을 DELIVERED 상태로 변경합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달 완료 처리 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "주문 완료 상태가 아니거나 이미 배달 완료됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달 도착 처리 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "주문 완료 상태가 아니거나 이미 배달 도착 처리됨"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
@@ -282,14 +282,17 @@ public class DeliveryPartyController {
                 currentUser.userId()
         );
 
-        return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
+        return ResponseEntity.ok(ApiResponse.success("배달이 도착했습니다.", response));
     }
 
-    @Operation(summary = "배달팟 모집 마감", description = "파티장이 모집 중인 배달팟의 모집을 마감합니다.")
+    @Operation(
+            summary = "배달팟 모집 마감",
+            description = "목표 인원 도달 시 자동 마감됩니다. 방장은 참여 인원 2명 이상인 모집 중 배달팟을 조기 마감할 수 있습니다."
+    )
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 모집 마감 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감된 배달팟"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감됐거나 참여 인원이 2명 미만인 배달팟"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),

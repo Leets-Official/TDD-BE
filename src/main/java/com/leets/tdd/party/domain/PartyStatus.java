@@ -4,6 +4,7 @@ public enum PartyStatus {
   RECRUITING,
   CLOSED,
   ORDERED,
-  COMPLETED,
+  DELIVERED,
+  SETTLED,
   CANCELED
 }
