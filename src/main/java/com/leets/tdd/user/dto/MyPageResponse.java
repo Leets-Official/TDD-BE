@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 
 public record MyPageResponse(
+        Long userId,
         String nickname,
         String profileImageUrl,
         BigDecimal mannerTemperature,
@@ -15,6 +16,7 @@ public record MyPageResponse(
         String dormStatus,
         LocalDateTime dormVerifiedAt,
         LocalDateTime dormVerifiedUntil,
-        String rejectReason
+        String rejectReason,
+        boolean pushEnabled
 ) {
 }
