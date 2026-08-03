@@ -183,6 +183,21 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("프로필 사진이 있으면 key가 아니라 resolveViewUrl로 조립한 URL이 내려간다")
+    void getMyPage_withProfileImage_returnsResolvedUrl() {
+        User user = newUser();
+        user.updateProfileImageKey("profiles/1/uuid.jpg");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.resolveViewUrl("profiles/1/uuid.jpg"))
+                .thenReturn("https://assets-public.example.com/profiles/1/uuid.jpg");
+
+        MyPageResponse response = userService.getMyPage(1L);
+
+        assertThat(response.profileImageUrl()).isEqualTo("https://assets-public.example.com/profiles/1/uuid.jpg");
+    }
+
+    @Test
     @DisplayName("정지 기간이 지났으면 조회 시 자동으로 ACTIVE 상태가 된다")
     void getMyPage_liftsExpiredSuspension() {
         User user = newUser();
@@ -414,11 +429,13 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.existsByNickname("새닉네임")).thenReturn(false);
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
+        when(imageStorageService.resolveViewUrl("profiles/1/existing.jpg"))
+                .thenReturn("https://assets-public.example.com/profiles/1/existing.jpg");
 
         ProfileUpdateResponse response = userService.updateProfile(
                 1L, updateRequest("새닉네임", "2기숙사", null));
 
-        assertThat(response.profileImageUrl()).isEqualTo("profiles/1/existing.jpg");
+        assertThat(response.profileImageUrl()).isEqualTo("https://assets-public.example.com/profiles/1/existing.jpg");
         assertThat(user.getProfileImageUrl()).isEqualTo("profiles/1/existing.jpg");
     }
 

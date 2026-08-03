@@ -161,7 +161,8 @@ public class UserService {
             dormitory.changeDormitory(request.dormitory());
         }
 
-        return new ProfileUpdateResponse(user.getNickname(), dormitory.getDormitory(), user.getProfileImageUrl());
+        return new ProfileUpdateResponse(
+                user.getNickname(), dormitory.getDormitory(), resolveProfileImageUrl(user.getProfileImageUrl()));
     }
 
     /**
@@ -476,10 +477,17 @@ public class UserService {
         return !remainder.isEmpty() && !remainder.contains("/") && !remainder.contains("..");
     }
 
+    // 마이페이지 조회 시 User.profileImageUrl(실제로는 S3 key)을 응답에 그대로 내려주면 프론트가
+    // 열 수 없다(공개 버킷이라 만료는 안 되지만, base URL과 합쳐 완성된 URL을 만들어야 함).
+    // 프로필 사진이 없는 유저(key == null)는 그대로 null을 내려준다.
+    private String resolveProfileImageUrl(String key) {
+        return key == null ? null : imageStorageService.resolveViewUrl(key);
+    }
+
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {
         return new MyPageResponse(
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                resolveProfileImageUrl(user.getProfileImageUrl()),
                 user.getMannerTemperature(),
                 user.getNoShowApprovedCount(),
                 user.getSuspendedUntil(),
