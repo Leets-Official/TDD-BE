@@ -47,6 +47,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -120,11 +121,13 @@ class UserServiceTest {
     @DisplayName("기숙사 인증 정보가 없으면(미인증) 관련 필드가 전부 null로 내려간다")
     void getMyPage_noDormitory() {
         User user = newUser();
+        ReflectionTestUtils.setField(user, "id", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(dormitoryRepository.findByUserId(1L)).thenReturn(Optional.empty());
 
         MyPageResponse response = userService.getMyPage(1L);
 
+        assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.nickname()).isEqualTo("가나디");
         assertThat(response.status()).isEqualTo("ACTIVE");
         assertThat(response.dormitory()).isNull();

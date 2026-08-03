@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 
 public record MyPageResponse(
+        Long userId,
         String nickname,
         String profileImageUrl,
         BigDecimal mannerTemperature,

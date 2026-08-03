@@ -486,6 +486,7 @@ public class UserService {
 
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {
         return new MyPageResponse(
+                user.getId(),
                 user.getNickname(),
                 resolveProfileImageUrl(user.getProfileImageUrl()),
                 user.getMannerTemperature(),

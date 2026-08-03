@@ -75,7 +75,7 @@ class UserControllerTest {
     void getMyPage_activeAccount_returns200() throws Exception {
         stubValidToken("valid-token", 1L, UserStatus.ACTIVE);
         when(userService.getMyPage(1L)).thenReturn(new MyPageResponse(
-                "가나디", null, BigDecimal.valueOf(3.0), 0, null, "ACTIVE", null, null, null, null, null));
+                1L, "가나디", null, BigDecimal.valueOf(3.0), 0, null, "ACTIVE", null, null, null, null, null));
 
         mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isOk())
