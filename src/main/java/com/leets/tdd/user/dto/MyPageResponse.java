@@ -16,6 +16,7 @@ public record MyPageResponse(
         String dormStatus,
         LocalDateTime dormVerifiedAt,
         LocalDateTime dormVerifiedUntil,
-        String rejectReason
+        String rejectReason,
+        boolean pushEnabled
 ) {
 }

@@ -134,6 +134,7 @@ class UserServiceTest {
         assertThat(response.dormStatus()).isNull();
         assertThat(response.dormVerifiedAt()).isNull();
         assertThat(response.dormVerifiedUntil()).isNull();
+        assertThat(response.pushEnabled()).isTrue();
     }
 
     @Test
