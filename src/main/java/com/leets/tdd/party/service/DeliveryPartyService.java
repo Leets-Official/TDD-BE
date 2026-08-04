@@ -527,6 +527,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.settleForMvp();
+        chatService.sendSystemMessage(partyId, MessageType.REVIEW_REQUEST, "정산이 완료됐어요! 배달팟은 어떠셨나요? 후기를 남겨주세요");
         return new CompleteMvpSettlementResponse(deliveryParty.getId(), deliveryParty.getStatus().name());
     }
 }
