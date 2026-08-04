@@ -10,13 +10,19 @@ import com.leets.tdd.chat.repository.ChatMessageRepository;
 import com.leets.tdd.chat.repository.ChatRoomRepository;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -26,15 +32,20 @@ public class ChatService {
     private static final int MIN_PAGE_SIZE = 1;
     private static final int MAX_PAGE_SIZE = 100;
 
+    // 채팅 브로드캐스트 목적지(팟별 채팅 토픽)
+    private static final String CHAT_TOPIC_FORMAT = "/topic/parties/%d/chat";
+
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final DeliveryPartyRepository deliveryPartyRepository;
     private final ChatAuthValidator chatAuthValidator;
+    private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+
     /**
      * 배달팟에 대응하는 채팅방을 생성한다.
      * 배달팟이 MATCHED로 전환되는 시점에 파티 도메인에서 이 메서드를 호출한다.
      * (채팅방은 배달팟에 1:1로 종속된다 - V6 마이그레이션 주석 참고)
-
      * 이미 해당 팟의 채팅방이 있으면 새로 만들지 않고 그대로 둔다. 매칭 처리가
      * 재시도되거나 중복 호출돼도 채팅방이 하나만 유지되도록 하기 위함이다.
      */
@@ -76,7 +87,30 @@ public class ChatService {
         }
 
         ChatMessage saved = chatMessageRepository.save(message);
-        return ChatMessageResponse.from(saved);
+        // 실시간 메시지에도 발신자 닉네임을 실어 브로드캐스트되게 한다(사용자 메시지라 senderId는 항상 존재).
+        String senderNickname = userRepository.findById(senderId)
+                .map(User::getNickname)
+                .orElse(null);
+        return ChatMessageResponse.from(saved, senderNickname);
+    }
+
+    /**
+     * 시스템 메시지(배달 도착, 주문 완료 등 상태 전환 안내)를 생성·저장하고 채팅방에 브로드캐스트한다.
+     * 배달팟 상태 전환 시점에 파티 도메인에서 호출한다(예: DeliveryPartyService.completeDelivery).
+     * 채팅방이 없으면(생성 전) 조용히 건너뛴다 - 상태 전환 자체는 실패시키지 않는다.
+     */
+    @Transactional
+    public void sendSystemMessage(Long partyId, MessageType type, String content) {
+        ChatRoom chatRoom = chatRoomRepository.findByPartyId(partyId).orElse(null);
+        if (chatRoom == null) {
+            return;
+        }
+        ChatMessage saved = chatMessageRepository.save(
+                ChatMessage.createSystemMessage(chatRoom.getId(), type, content));
+        // 시스템 메시지는 senderId가 없어 닉네임도 없다(닉네임 없는 from 사용).
+        messagingTemplate.convertAndSend(
+                CHAT_TOPIC_FORMAT.formatted(partyId),
+                ChatMessageResponse.from(saved));
     }
 
     // 배달팟에 속한 채팅방 정보 조회
@@ -94,9 +128,25 @@ public class ChatService {
         Pageable pageable = PageRequest.of(0, boundedSize);
         List<ChatMessage> messages =
                 chatMessageRepository.findByChatRoomIdOrderByCreatedAtDescIdDesc(chatRoom.getId(), pageable);
+
+        // 발신자 닉네임을 한 번에 조회한다(메시지마다 개별 조회하면 N+1이 발생하므로,
+        // senderId를 모아 findAllByIdIn으로 배치 조회한다). 시스템 메시지는 senderId가 null이라 제외한다.
+        List<Long> senderIds = messages.stream()
+                .map(ChatMessage::getSenderId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameById = senderIds.isEmpty()
+                ? Map.of()
+                : userRepository.findAllByIdIn(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getNickname));
+
         // DB에서는 최신순으로 가져오지만, 화면에는 오래된 메시지부터 보여야 하므로 순서를 뒤집는다
         return messages.reversed().stream()
-                .map(ChatMessageResponse::from)
+                .map(message -> ChatMessageResponse.from(
+                        message,
+                        message.getSenderId() == null ? null : nicknameById.get(message.getSenderId())
+                ))
                 .toList();
     }
 
