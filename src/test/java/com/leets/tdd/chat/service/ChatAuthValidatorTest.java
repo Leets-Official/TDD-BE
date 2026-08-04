@@ -100,13 +100,23 @@ class ChatAuthValidatorTest {
     }
 
     @Test
-    @DisplayName("완료된 팟에서는 참여자여도 채팅 접근이 거부된다")
-    void validateChatAccess_completedParty_denied() {
+    @DisplayName("정산 완료된 팟에서는 참여자여도 채팅 접근이 거부된다")
+    void validateChatAccess_settledParty_denied() {
         when(deliveryPartyRepository.findById(PARTY_ID))
-                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.DELIVERED)));
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.SETTLED)));
 
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, PARTICIPANT_ID))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("배달 도착(DELIVERED) 팟에서는 정산 대화를 위해 채팅 접근이 허용된다")
+    void validateChatAccess_deliveredParty_allowed() {
+        when(deliveryPartyRepository.findById(PARTY_ID))
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.DELIVERED)));
+
+        assertThatCode(() -> chatAuthValidator.validateChatAccess(PARTY_ID, CREATOR_ID))
+                .doesNotThrowAnyException();
     }
 }
