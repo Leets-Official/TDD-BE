@@ -18,6 +18,7 @@ import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
@@ -447,6 +448,20 @@ class DeliveryPartyServiceTest {
     }
 
     @Test
+    void 최소_모집_인원에_도달하지_않으면_조기_모집_마감할_수_없다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        ReflectionTestUtils.setField(deliveryParty, "minParticipants", 3);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(2L);
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
+    }
+
+    @Test
     void 파티장이_아니면_모집을_마감할_수_없다() {
         when(deliveryPartyRepository.findWithLockById(10L))
                 .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
@@ -514,6 +529,29 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ALREADY_ORDERED);
+    }
+
+    @Test
+    void 배달_도착된_배달팟을_MVP_정산_완료한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.DELIVERED);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        CompleteMvpSettlementResponse response = deliveryPartyService.completeMvpSettlement(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("SETTLED");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.SETTLED);
+    }
+
+    @Test
+    void 배달_도착된_배달팟만_MVP_정산_완료할_수_있다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.ORDERED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeMvpSettlement(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.SETTLEMENT_NOT_DELIVERED);
     }
 
     @Test
