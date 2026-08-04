@@ -172,6 +172,14 @@ public class DeliveryParty {
     this.updatedAt = LocalDateTime.now();
   }
 
+  /**
+   * MVP 단계에서 정산 금액·납부 처리 없이 배달팟을 정산 완료 상태로 전환한다.
+   */
+  public void settleForMvp() {
+    this.status = PartyStatus.SETTLED;
+    this.updatedAt = LocalDateTime.now();
+  }
+
   public void cancelSettlement() {
     if (settlementStatus != SettlementStatus.REQUESTED) {
       throw new IllegalStateException("진행 중인 정산만 취소할 수 있습니다.");

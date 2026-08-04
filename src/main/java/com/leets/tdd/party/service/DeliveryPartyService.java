@@ -11,6 +11,7 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
@@ -464,7 +465,7 @@ public class DeliveryPartyService {
         if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
-        if (currentParticipants(partyId) < 2) {
+        if (currentParticipants(partyId) < deliveryParty.getMinParticipants()) {
             throw new PartyException(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
         }
         closeParty(deliveryParty, partyId);
@@ -505,5 +506,24 @@ public class DeliveryPartyService {
                 deliveryParty.getStatus().name(),
                 deliveryParty.getSettlementStatus().name()
         );
+    }
+
+    @Transactional
+    public CompleteMvpSettlementResponse completeMvpSettlement(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.SETTLEMENT_FORBIDDEN);
+        }
+        if (deliveryParty.getStatus() == PartyStatus.SETTLED) {
+            throw new PartyException(PartyErrorCode.ALREADY_SETTLED);
+        }
+        if (deliveryParty.getStatus() != PartyStatus.DELIVERED) {
+            throw new PartyException(PartyErrorCode.SETTLEMENT_NOT_DELIVERED);
+        }
+
+        deliveryParty.settleForMvp();
+        return new CompleteMvpSettlementResponse(deliveryParty.getId(), deliveryParty.getStatus().name());
     }
 }
