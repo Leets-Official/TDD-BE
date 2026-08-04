@@ -77,6 +77,9 @@ WHERE user_id = 42
 
 ## 참고
 
+- 로컬에서 RDS로 직접 붙을 수 없는 환경이면 EC2를 경유해야 한다. 접속 정보를 셸로 불러오는
+  방법과 실제 실행 명령은 [2026-08-04-dorm-approval-on-ec2.md](../troubleshooting/md/2026-08-04-dorm-approval-on-ec2.md)에
+  정리해두었다(JDBC URL의 `&` 때문에 `eval`로 환경변수를 로딩하면 실패하는 함정 포함).
 - `dorm_verified_at`은 반려 시 건드리지 않는다(승인된 적 있으면 그 기록을 유지, 없으면 계속 NULL).
 - 학기 만료(`dorm_verified_until` 경과) 처리는 수동 작업이 아니라 매일 00:00 배치
   (`DormVerificationExpiryScheduler`)가 자동으로 `EXPIRED` 전환 + S3 이미지 삭제까지 처리한다.
