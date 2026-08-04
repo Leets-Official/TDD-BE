@@ -486,6 +486,7 @@ public class UserService {
 
     private MyPageResponse toMyPageResponse(User user, Dormitory dormitory) {
         return new MyPageResponse(
+                user.getId(),
                 user.getNickname(),
                 resolveProfileImageUrl(user.getProfileImageUrl()),
                 user.getMannerTemperature(),
@@ -496,7 +497,8 @@ public class UserService {
                 dormitory != null ? dormitory.getDormStatus().name() : null,
                 dormitory != null ? dormitory.getDormVerifiedAt() : null,
                 dormitory != null ? dormitory.getDormVerifiedUntil() : null,
-                dormitory != null ? dormitory.getRejectReason() : null
+                dormitory != null ? dormitory.getRejectReason() : null,
+                user.isPushEnabled()
         );
     }
 }

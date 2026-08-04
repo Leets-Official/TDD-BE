@@ -15,6 +15,7 @@ public enum ReviewErrorCode implements ErrorCode {
   SELF_REVIEW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "자기 자신을 평가할 수 없습니다."),
   REVIEWEE_NOT_PARTICIPANT(HttpStatus.BAD_REQUEST, "평가 대상이 배달팟 참여자가 아닙니다."),
   REVIEW_TAG_NOT_FOUND(HttpStatus.BAD_REQUEST, "존재하지 않는 평가 태그가 포함되어 있습니다."),
+  INVALID_RATING(HttpStatus.BAD_REQUEST, "평점은 1점에서 5점 사이여야 합니다."),
   REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 평가를 남긴 참여자입니다."),
   UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
 
