@@ -501,6 +501,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeOrder();
+        chatService.sendSystemMessage(partyId, MessageType.ORDER_COMPLETED, "주문이 완료됐어요!");
         publishNotification(deliveryParty, DeliveryPartyNotificationType.ORDER_COMPLETED);
 
         return new OrderDeliveryPartyResponse(
