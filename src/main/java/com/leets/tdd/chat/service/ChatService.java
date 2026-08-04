@@ -13,6 +13,7 @@ import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.user.domain.User;
 import com.leets.tdd.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
@@ -97,20 +99,26 @@ public class ChatService {
     /**
      * 시스템 메시지(배달 도착, 주문 완료 등 상태 전환 안내)를 생성·저장하고 채팅방에 브로드캐스트한다.
      * 배달팟 상태 전환 시점에 파티 도메인에서 호출한다(예: DeliveryPartyService.completeDelivery).
-     * 채팅방이 없으면(생성 전) 조용히 건너뛴다 - 상태 전환 자체는 실패시키지 않는다.
+     * 채팅방이 없거나 저장·전송이 실패해도 조용히 넘어간다 - 상태 전환 자체는 실패시키지 않는다.
      */
     @Transactional
     public void sendSystemMessage(Long partyId, MessageType type, String content) {
         ChatRoom chatRoom = chatRoomRepository.findByPartyId(partyId).orElse(null);
         if (chatRoom == null) {
+            log.warn("chat.system_message.no_chat_room partyId={}", partyId);
             return;
         }
-        ChatMessage saved = chatMessageRepository.save(
-                ChatMessage.createSystemMessage(chatRoom.getId(), type, content));
-        // 시스템 메시지는 senderId가 없어 닉네임도 없다(닉네임 없는 from 사용).
-        messagingTemplate.convertAndSend(
-                CHAT_TOPIC_FORMAT.formatted(partyId),
-                ChatMessageResponse.from(saved));
+        try {
+            ChatMessage saved = chatMessageRepository.save(
+                    ChatMessage.createSystemMessage(chatRoom.getId(), type, content));
+            // 시스템 메시지는 senderId가 없어 닉네임도 없다(닉네임 없는 from 사용).
+            messagingTemplate.convertAndSend(
+                    CHAT_TOPIC_FORMAT.formatted(partyId),
+                    ChatMessageResponse.from(saved));
+        } catch (Exception e) {
+            // 채팅 알림 실패가 배달팟 상태 전환까지 롤백시키지 않도록 예외를 삼키고 로그만 남긴다.
+            log.warn("chat.system_message.failed partyId={}, type={}", partyId, type, e);
+        }
     }
 
     // 배달팟에 속한 채팅방 정보 조회
