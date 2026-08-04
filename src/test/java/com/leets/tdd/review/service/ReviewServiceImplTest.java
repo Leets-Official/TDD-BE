@@ -1,8 +1,11 @@
 package com.leets.tdd.review.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.leets.tdd.party.domain.DeliveryParty;
@@ -79,6 +82,35 @@ class ReviewServiceImplTest {
     assertThat(response.targets()).singleElement()
         .extracting("userId", "nickname", "reviewed")
         .containsExactly(2L, "야식요정", false);
+    // 대상 수와 무관하게 후기를 한 번에 읽는지 고정한다(대상마다 exists를 던지는 구현으로 되돌아가지 않도록).
+    verify(reviewRepository).findAllByPartyIdAndReviewerId(10L, 1L);
+    verify(reviewRepository, never()).existsByPartyIdAndReviewerIdAndRevieweeId(anyLong(), anyLong(), anyLong());
+  }
+
+  @Test
+  void 이미_평가한_대상만_reviewed로_표시한다() {
+    DeliveryParty party = completedParty();
+    PartyParticipant currentUser = participant(1L);
+    PartyParticipant reviewedTarget = participant(2L);
+    PartyParticipant notReviewedTarget = participant(3L);
+    User reviewedUser = user(2L, "야식요정");
+    User notReviewedUser = user(3L, "새벽배송");
+    Review alreadyWritten = Review.create(10L, 1L, 2L, 5, "좋았습니다.");
+
+    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(10L, 1L, PartyParticipantStatus.JOINED))
+        .willReturn(true);
+    given(partyParticipantRepository.findAllByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+        .willReturn(List.of(currentUser, reviewedTarget, notReviewedTarget));
+    given(userRepository.findAllByIdIn(List.of(2L, 3L)))
+        .willReturn(List.of(reviewedUser, notReviewedUser));
+    given(reviewRepository.findAllByPartyIdAndReviewerId(10L, 1L)).willReturn(List.of(alreadyWritten));
+
+    ReviewTargetListResponse response = reviewService.getReviewTargets(1L, 10L);
+
+    assertThat(response.targets())
+        .extracting("userId", "reviewed")
+        .containsExactly(tuple(2L, true), tuple(3L, false));
   }
 
   @Test
