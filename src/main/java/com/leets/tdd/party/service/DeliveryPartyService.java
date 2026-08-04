@@ -1,5 +1,6 @@
 package com.leets.tdd.party.service;
 
+import com.leets.tdd.chat.domain.MessageType;
 import com.leets.tdd.chat.service.ChatService;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
@@ -11,6 +12,7 @@ import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchItemResponse;
@@ -243,9 +245,14 @@ public class DeliveryPartyService {
         }
         publishNotification(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_JOINED);
 
+        long updatedParticipants = currentParticipants(partyId);
+        if (updatedParticipants >= deliveryParty.getMaxParticipants()) {
+            closeParty(deliveryParty, partyId);
+        }
+
         return new JoinDeliveryPartyResponse(
                 partyId,
-                currentParticipants + 1,
+                updatedParticipants,
                 deliveryParty.getMaxParticipants()
         );
     }
@@ -432,8 +439,8 @@ public class DeliveryPartyService {
             throw new PartyException(PartyErrorCode.COMPLETE_FORBIDDEN);
         }
 
-        if (deliveryParty.getStatus() == PartyStatus.COMPLETED) {
-            throw new PartyException(PartyErrorCode.ALREADY_COMPLETED);
+        if (deliveryParty.getStatus() == PartyStatus.DELIVERED) {
+            throw new PartyException(PartyErrorCode.ALREADY_DELIVERED);
         }
 
         if (deliveryParty.getStatus() != PartyStatus.ORDERED) {
@@ -441,6 +448,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeDelivery();
+        chatService.sendSystemMessage(partyId, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
         publishNotification(deliveryParty, DeliveryPartyNotificationType.DELIVERY_COMPLETED);
 
         return new CompleteDeliveryPartyResponse(
@@ -459,13 +467,20 @@ public class DeliveryPartyService {
         if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
-        deliveryParty.close();
-        chatService.createChatRoom(partyId);
-        publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
+        if (currentParticipants(partyId) < deliveryParty.getMinParticipants()) {
+            throw new PartyException(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
+        }
+        closeParty(deliveryParty, partyId);
         return new CloseDeliveryPartyResponse(
                 deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
                 deliveryParty.getStatus().name()
         );
+    }
+
+    private void closeParty(DeliveryParty deliveryParty, Long partyId) {
+        deliveryParty.close();
+        chatService.createChatRoom(partyId);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
     }
 
     @Transactional
@@ -486,6 +501,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeOrder();
+        chatService.sendSystemMessage(partyId, MessageType.ORDER_COMPLETED, "주문이 완료됐어요!");
         publishNotification(deliveryParty, DeliveryPartyNotificationType.ORDER_COMPLETED);
 
         return new OrderDeliveryPartyResponse(
@@ -493,5 +509,24 @@ public class DeliveryPartyService {
                 deliveryParty.getStatus().name(),
                 deliveryParty.getSettlementStatus().name()
         );
+    }
+
+    @Transactional
+    public CompleteMvpSettlementResponse completeMvpSettlement(Long partyId, Long currentUserId) {
+        DeliveryParty deliveryParty = deliveryPartyRepository.findWithLockById(partyId)
+                .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
+
+        if (!deliveryParty.getCreatorId().equals(currentUserId)) {
+            throw new PartyException(PartyErrorCode.SETTLEMENT_FORBIDDEN);
+        }
+        if (deliveryParty.getStatus() == PartyStatus.SETTLED) {
+            throw new PartyException(PartyErrorCode.ALREADY_SETTLED);
+        }
+        if (deliveryParty.getStatus() != PartyStatus.DELIVERED) {
+            throw new PartyException(PartyErrorCode.SETTLEMENT_NOT_DELIVERED);
+        }
+
+        deliveryParty.settleForMvp();
+        return new CompleteMvpSettlementResponse(deliveryParty.getId(), deliveryParty.getStatus().name());
     }
 }

@@ -136,7 +136,7 @@ class SettlementServiceImplTest {
 
   @Test
   void 방장이_완료된_팟에_정산을_요청한다() {
-    DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
+    DeliveryParty party = party(10L, 1L, PartyStatus.DELIVERED, SettlementStatus.NONE);
     PartyParticipant host = participant(10L, 1L, PartyParticipantRole.HOST);
     PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
     BankAccount account = org.mockito.Mockito.mock(BankAccount.class);
@@ -164,7 +164,7 @@ class SettlementServiceImplTest {
 
   @Test
   void 방장은_정산_대상에_포함할_수_없다() {
-    DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
+    DeliveryParty party = party(10L, 1L, PartyStatus.DELIVERED, SettlementStatus.NONE);
     given(deliveryPartyRepository.findWithLockById(10L)).willReturn(Optional.of(party));
     given(bankAccountRepository.findByUserId(1L)).willReturn(Optional.of(org.mockito.Mockito.mock(BankAccount.class)));
     given(partyParticipantRepository.findAllByPartyId(10L)).willReturn(List.of(
@@ -229,7 +229,7 @@ class SettlementServiceImplTest {
 
   @Test
   void 정산을_요청하면_계좌를_담은_시스템_메시지_발행을_트리거한다() {
-    DeliveryParty party = party(10L, 1L, PartyStatus.COMPLETED, SettlementStatus.NONE);
+    DeliveryParty party = party(10L, 1L, PartyStatus.DELIVERED, SettlementStatus.NONE);
     PartyParticipant host = participant(10L, 1L, PartyParticipantRole.HOST);
     PartyParticipant member = participant(10L, 2L, PartyParticipantRole.MEMBER);
     BankAccount account = org.mockito.Mockito.mock(BankAccount.class);
@@ -263,6 +263,7 @@ class SettlementServiceImplTest {
 
     settlementService.completeSettlement(1L, 10L);
 
+    assertThat(party.getStatus()).isEqualTo(PartyStatus.SETTLED);
     verify(settlementNotifier).notifySettlementCompleted(10L, "치킨 같이 시켜요", List.of(2L));
   }
 
@@ -289,7 +290,7 @@ class SettlementServiceImplTest {
   }
 
   private DeliveryParty requestedParty(Long id, Long creatorId) {
-    DeliveryParty party = party(id, creatorId, PartyStatus.COMPLETED, SettlementStatus.NONE);
+    DeliveryParty party = party(id, creatorId, PartyStatus.DELIVERED, SettlementStatus.NONE);
     party.requestSettlement(20_000, 100L, LocalDateTime.now());
     return party;
   }

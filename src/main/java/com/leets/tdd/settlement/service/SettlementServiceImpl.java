@@ -270,7 +270,7 @@ public class SettlementServiceImpl implements SettlementService {
   }
 
   private void validateSettlementCreatable(DeliveryParty party) {
-    if (party.getStatus() != PartyStatus.COMPLETED) {
+    if (party.getStatus() != PartyStatus.DELIVERED) {
       throw new SettlementException(SettlementErrorCode.PARTY_NOT_COMPLETED);
     }
     if (party.getSettlementStatus() == SettlementStatus.REQUESTED) {

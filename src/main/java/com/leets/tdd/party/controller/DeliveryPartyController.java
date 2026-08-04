@@ -7,6 +7,7 @@ import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.CreateDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
@@ -42,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping({"/api/v1/delivery-parties", "/api/v1/parties"})
+@RequestMapping("/api/v1/parties")
 @RequiredArgsConstructor
 @Tag(name = "Delivery Party", description = "배달팟 생성, 조회, 참여 및 상태 변경 API")
 public class DeliveryPartyController {
@@ -262,11 +263,11 @@ public class DeliveryPartyController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "배달 완료", description = "파티장이 주문 완료된 배달팟을 배달 완료 상태로 변경합니다.")
+    @Operation(summary = "배달 도착", description = "파티장이 주문 완료된 배달팟을 DELIVERED 상태로 변경합니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달 완료 처리 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "주문 완료 상태가 아니거나 이미 배달 완료됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달 도착 처리 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "주문 완료 상태가 아니거나 이미 배달 도착 처리됨"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
@@ -282,14 +283,17 @@ public class DeliveryPartyController {
                 currentUser.userId()
         );
 
-        return ResponseEntity.ok(ApiResponse.success("배달이 완료되었습니다.", response));
+        return ResponseEntity.ok(ApiResponse.success("배달이 도착했습니다.", response));
     }
 
-    @Operation(summary = "배달팟 모집 마감", description = "파티장이 모집 중인 배달팟의 모집을 마감합니다.")
+    @Operation(
+            summary = "배달팟 모집 마감",
+            description = "목표 인원 도달 시 자동 마감됩니다. 방장은 최소 모집 인원 이상인 모집 중 배달팟을 조기 마감할 수 있습니다."
+    )
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "배달팟 모집 마감 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감된 배달팟"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 모집이 마감됐거나 최소 모집 인원에 도달하지 않은 배달팟"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음"),
@@ -328,5 +332,29 @@ public class DeliveryPartyController {
         );
 
         return ResponseEntity.ok(ApiResponse.success("주문이 완료되었습니다.", response));
+    }
+
+    @Operation(
+            summary = "MVP 정산 완료",
+            description = "MVP용 간소화 API입니다. 정산 금액·납부 처리 없이 배달 도착 배달팟을 SETTLED 상태로 변경합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "정산 완료 처리 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "배달 도착 상태가 아니거나 이미 정산 완료됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "로그인 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "파티장이 아님"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "배달팟 없음")
+    })
+    @PatchMapping("/{partyId}/settle")
+    public ResponseEntity<ApiResponse<CompleteMvpSettlementResponse>> completeMvpSettlement(
+            @PathVariable Long partyId,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        CompleteMvpSettlementResponse response = deliveryPartyService.completeMvpSettlement(
+                partyId,
+                currentUser.userId()
+        );
+        return ResponseEntity.ok(ApiResponse.success("정산이 완료되었습니다.", response));
     }
 }

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.leets.tdd.global.jwt.UserPrincipal;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.OrderDeliveryPartyResponse;
 import com.leets.tdd.party.service.DeliveryPartyService;
 import java.util.List;
@@ -32,7 +33,7 @@ class DeliveryPartyControllerTest {
     @Test
     void 배달_완료_응답을_반환한다() throws Exception {
         given(deliveryPartyService.completeDelivery(eq(15L), eq(1L)))
-                .willReturn(new CompleteDeliveryPartyResponse(15L, "COMPLETED"));
+                .willReturn(new CompleteDeliveryPartyResponse(15L, "DELIVERED"));
 
         mockMvc.perform(patch("/api/v1/parties/15/complete")
                         .with(authentication(new UsernamePasswordAuthenticationToken(
@@ -40,9 +41,9 @@ class DeliveryPartyControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("배달이 완료되었습니다."))
+                .andExpect(jsonPath("$.message").value("배달이 도착했습니다."))
                 .andExpect(jsonPath("$.data.partyId").value(15))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.status").value("DELIVERED"));
     }
 
     @Test
@@ -60,5 +61,21 @@ class DeliveryPartyControllerTest {
                 .andExpect(jsonPath("$.data.partyId").value(15))
                 .andExpect(jsonPath("$.data.status").value("ORDERED"))
                 .andExpect(jsonPath("$.data.settlementStatus").value("NONE"));
+    }
+
+    @Test
+    void MVP_정산_완료_응답을_반환한다() throws Exception {
+        given(deliveryPartyService.completeMvpSettlement(eq(15L), eq(1L)))
+                .willReturn(new CompleteMvpSettlementResponse(15L, "SETTLED"));
+
+        mockMvc.perform(patch("/api/v1/parties/15/settle")
+                        .with(authentication(new UsernamePasswordAuthenticationToken(
+                                new UserPrincipal(1L), null, List.of())))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("정산이 완료되었습니다."))
+                .andExpect(jsonPath("$.data.partyId").value(15))
+                .andExpect(jsonPath("$.data.status").value("SETTLED"));
     }
 }

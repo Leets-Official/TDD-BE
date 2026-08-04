@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.chat.service.ChatService;
@@ -17,6 +18,7 @@ import com.leets.tdd.party.dto.MyPartyStatusFilter;
 import com.leets.tdd.party.dto.request.CreateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.request.UpdateDeliveryPartyRequest;
 import com.leets.tdd.party.dto.response.CompleteDeliveryPartyResponse;
+import com.leets.tdd.party.dto.response.CompleteMvpSettlementResponse;
 import com.leets.tdd.party.dto.response.CloseDeliveryPartyResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartyDetailResponse;
 import com.leets.tdd.party.dto.response.DeliveryPartySearchResponse;
@@ -351,8 +353,8 @@ class DeliveryPartyServiceTest {
         CompleteDeliveryPartyResponse response = deliveryPartyService.completeDelivery(10L, 1L);
 
         assertThat(response.partyId()).isEqualTo(10L);
-        assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(response.status()).isEqualTo("DELIVERED");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.DELIVERED);
         assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.DELIVERY_COMPLETED);
     }
 
@@ -382,18 +384,20 @@ class DeliveryPartyServiceTest {
     @Test
     void 이미_배달_완료된_배달팟은_다시_처리할_수_없다() {
         when(deliveryPartyRepository.findWithLockById(10L))
-                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.COMPLETED)));
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.DELIVERED)));
 
         assertThatThrownBy(() -> deliveryPartyService.completeDelivery(10L, 1L))
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
-                .isEqualTo(PartyErrorCode.ALREADY_COMPLETED);
+                .isEqualTo(PartyErrorCode.ALREADY_DELIVERED);
     }
 
     @Test
     void 파티장이_모집중인_배달팟을_마감한다() {
         DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
         when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(2L);
 
         CloseDeliveryPartyResponse response = deliveryPartyService.closeDeliveryParty(10L, 1L);
 
@@ -402,6 +406,59 @@ class DeliveryPartyServiceTest {
         assertThat(deliveryParty.getClosedAt()).isNotNull();
         verify(chatService).createChatRoom(10L);
         assertNotificationPublished(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
+    }
+
+    @Test
+    void 목표_인원에_도달하면_자동으로_모집을_마감한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(
+                10L, 2L, PartyParticipantStatus.JOINED
+        )).thenReturn(false);
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(3L, 4L);
+
+        deliveryPartyService.joinDeliveryParty(10L, 2L);
+
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.CLOSED);
+        verify(chatService).createChatRoom(10L);
+        ArgumentCaptor<DeliveryPartyNotificationEvent> captor = ArgumentCaptor.forClass(
+                DeliveryPartyNotificationEvent.class
+        );
+        verify(eventPublisher, times(2)).publishEvent(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(DeliveryPartyNotificationEvent::type)
+                .containsExactly(
+                        DeliveryPartyNotificationType.PARTICIPANT_JOINED,
+                        DeliveryPartyNotificationType.RECRUITMENT_CLOSED
+                );
+    }
+
+    @Test
+    void 참여자가_2명_미만이면_조기_모집_마감할_수_없다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.RECRUITING)));
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(1L);
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
+    }
+
+    @Test
+    void 최소_모집_인원에_도달하지_않으면_조기_모집_마감할_수_없다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
+        ReflectionTestUtils.setField(deliveryParty, "minParticipants", 3);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+        when(partyParticipantRepository.countByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+                .thenReturn(2L);
+
+        assertThatThrownBy(() -> deliveryPartyService.closeDeliveryParty(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
     }
 
     @Test
@@ -472,6 +529,29 @@ class DeliveryPartyServiceTest {
                 .isInstanceOf(PartyException.class)
                 .extracting(exception -> ((PartyException) exception).getErrorCode())
                 .isEqualTo(PartyErrorCode.ALREADY_ORDERED);
+    }
+
+    @Test
+    void 배달_도착된_배달팟을_MVP_정산_완료한다() {
+        DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.DELIVERED);
+        when(deliveryPartyRepository.findWithLockById(10L)).thenReturn(Optional.of(deliveryParty));
+
+        CompleteMvpSettlementResponse response = deliveryPartyService.completeMvpSettlement(10L, 1L);
+
+        assertThat(response.partyId()).isEqualTo(10L);
+        assertThat(response.status()).isEqualTo("SETTLED");
+        assertThat(deliveryParty.getStatus()).isEqualTo(PartyStatus.SETTLED);
+    }
+
+    @Test
+    void 배달_도착된_배달팟만_MVP_정산_완료할_수_있다() {
+        when(deliveryPartyRepository.findWithLockById(10L))
+                .thenReturn(Optional.of(party(10L, 1L, PartyStatus.ORDERED)));
+
+        assertThatThrownBy(() -> deliveryPartyService.completeMvpSettlement(10L, 1L))
+                .isInstanceOf(PartyException.class)
+                .extracting(exception -> ((PartyException) exception).getErrorCode())
+                .isEqualTo(PartyErrorCode.SETTLEMENT_NOT_DELIVERED);
     }
 
     @Test

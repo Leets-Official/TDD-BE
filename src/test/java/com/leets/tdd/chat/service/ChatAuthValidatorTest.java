@@ -103,7 +103,7 @@ class ChatAuthValidatorTest {
     @DisplayName("완료된 팟에서는 참여자여도 채팅 접근이 거부된다")
     void validateChatAccess_completedParty_denied() {
         when(deliveryPartyRepository.findById(PARTY_ID))
-                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.COMPLETED)));
+                .thenReturn(Optional.of(party(CREATOR_ID, PartyStatus.DELIVERED)));
 
         assertThatThrownBy(() -> chatAuthValidator.validateChatAccess(PARTY_ID, PARTICIPANT_ID))
                 .isInstanceOf(IllegalArgumentException.class)

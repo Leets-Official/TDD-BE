@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 채팅(메시지·이미지) 접근 권한을 검증한다.
- * 채팅 접근 조건 = 팟이 종료(CANCELED/COMPLETED) 상태가 아니고, 그 팟의 방장이거나 JOINED 참여자.
+ * 채팅 접근 조건 = 팟이 종료(CANCELED/DELIVERED/SETTLED) 상태가 아니고, 그 팟의 방장이거나 JOINED 참여자.
 
  * 상태 검사를 메시지 저장과 같은 트랜잭션·row lock 안에서 수행해야 하는 경로(ChatService.saveMessage)를
  * 위해, 이미 조회(락)된 DeliveryParty를 받는 오버로드를 제공한다. 락이 필요 없는 경로(이미지 presign/confirm 등)는
@@ -39,7 +39,9 @@ public class ChatAuthValidator {
      * (ChatService.saveMessage가 findWithLockById로 잠근 팟을 넘긴다).
      */
     public void validateChatAccess(DeliveryParty party, Long userId) {
-        if (party.getStatus() == PartyStatus.CANCELED || party.getStatus() == PartyStatus.COMPLETED) {
+        if (party.getStatus() == PartyStatus.CANCELED
+                || party.getStatus() == PartyStatus.DELIVERED
+                || party.getStatus() == PartyStatus.SETTLED) {
             throw new IllegalArgumentException("종료된 배달팟에서는 채팅을 이용할 수 없습니다.");
         }
         if (party.getCreatorId().equals(userId)) {

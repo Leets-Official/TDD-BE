@@ -29,15 +29,15 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     ) throws IOException {
         String requestPath = request.getRequestURI().substring(request.getContextPath().length());
         if (("POST".equalsIgnoreCase(request.getMethod())
-                && requestPath.matches("/api/v1/(parties|delivery-parties)"))
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/me")
+                && requestPath.matches("/api/v1/parties"))
+                || requestPath.matches("/api/v1/parties/me")
                 || ("DELETE".equalsIgnoreCase(request.getMethod())
-                && requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+"))
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/join")
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/participants")
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/complete")
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/order")
-                || requestPath.matches("/api/v1/(parties|delivery-parties)/[^/]+/close")) {
+                && requestPath.matches("/api/v1/parties/[^/]+"))
+                || requestPath.matches("/api/v1/parties/[^/]+/join")
+                || requestPath.matches("/api/v1/parties/[^/]+/participants")
+                || requestPath.matches("/api/v1/parties/[^/]+/complete")
+                || requestPath.matches("/api/v1/parties/[^/]+/order")
+                || requestPath.matches("/api/v1/parties/[^/]+/close")) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");

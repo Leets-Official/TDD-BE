@@ -168,6 +168,16 @@ public class DeliveryParty {
       throw new IllegalStateException("진행 중인 정산만 완료할 수 있습니다.");
     }
     this.settlementStatus = SettlementStatus.COMPLETED;
+    this.status = PartyStatus.SETTLED;
+    this.updatedAt = LocalDateTime.now();
+  }
+
+  /**
+   * MVP 단계에서 정산 금액·납부 처리 없이 배달팟을 정산 완료 상태로 전환한다.
+   */
+  public void settleForMvp() {
+    this.status = PartyStatus.SETTLED;
+    this.updatedAt = LocalDateTime.now();
   }
 
   public void cancelSettlement() {
@@ -183,7 +193,7 @@ public class DeliveryParty {
   }
 
   public void completeDelivery() {
-    this.status = PartyStatus.COMPLETED;
+    this.status = PartyStatus.DELIVERED;
     this.updatedAt = LocalDateTime.now();
   }
 
