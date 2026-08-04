@@ -1,5 +1,6 @@
 package com.leets.tdd.party.service;
 
+import com.leets.tdd.chat.domain.MessageType;
 import com.leets.tdd.chat.service.ChatService;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
@@ -447,6 +448,7 @@ public class DeliveryPartyService {
         }
 
         deliveryParty.completeDelivery();
+        chatService.sendSystemMessage(partyId, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
         publishNotification(deliveryParty, DeliveryPartyNotificationType.DELIVERY_COMPLETED);
 
         return new CompleteDeliveryPartyResponse(
