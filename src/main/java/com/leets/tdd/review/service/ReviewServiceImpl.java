@@ -4,6 +4,7 @@ import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
 import com.leets.tdd.party.domain.PartyStatus;
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
 import com.leets.tdd.party.repository.PartyParticipantRepository;
 import com.leets.tdd.review.domain.Review;
@@ -56,6 +57,7 @@ public class ReviewServiceImpl implements ReviewService {
   private final ReviewRepository reviewRepository;
   private final ReviewTagRepository reviewTagRepository;
   private final ReviewTagMappingRepository reviewTagMappingRepository;
+  private final ImageStorageService imageStorageService;
 
   @Override
   public ReviewTargetListResponse getReviewTargets(Long currentUserId, Long partyId) {
@@ -84,7 +86,11 @@ public class ReviewServiceImpl implements ReviewService {
     List<ReviewTargetResponse> targets = targetUserIds.stream()
         .map(users::get)
         .filter(Objects::nonNull)
-        .map(user -> ReviewTargetResponse.from(user, reviewedUserIds.contains(user.getId())))
+        .map(user -> ReviewTargetResponse.from(
+            user,
+            resolveProfileImageUrl(user.getProfileImageUrl()),
+            reviewedUserIds.contains(user.getId())
+        ))
         .toList();
     return new ReviewTargetListResponse(partyId, targets);
   }
@@ -214,6 +220,12 @@ public class ReviewServiceImpl implements ReviewService {
       case 1 -> new BigDecimal("-0.5");
       default -> throw new ReviewException(ReviewErrorCode.INVALID_RATING);
     };
+  }
+
+  // User.profileImageUrl에 저장된 값은 S3 객체 key라, base URL과 합쳐야 프론트가 열 수 있는
+  // 주소가 된다. 프로필 사진이 없는 사용자(key == null)는 그대로 null을 내려준다.
+  private String resolveProfileImageUrl(String key) {
+    return key == null ? null : imageStorageService.resolveViewUrl(key);
   }
 
   // 후기는 남아 있는데 배달팟을 못 찾는 경우에도 목록 조회 전체가 실패하지 않도록 제목을 비웁니다.

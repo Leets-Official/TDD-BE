@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantStatus;
@@ -57,6 +58,9 @@ class ReviewServiceImplTest {
 
   @Mock
   private ReviewTagMappingRepository reviewTagMappingRepository;
+
+  @Mock
+  private ImageStorageService imageStorageService;
 
   @InjectMocks
   private ReviewServiceImpl reviewService;
@@ -111,6 +115,36 @@ class ReviewServiceImplTest {
     assertThat(response.targets())
         .extracting("userId", "reviewed")
         .containsExactly(tuple(2L, true), tuple(3L, false));
+  }
+
+  @Test
+  void 프로필_이미지_key를_절대주소로_변환해_내려준다() {
+    DeliveryParty party = completedParty();
+    PartyParticipant currentUser = participant(1L);
+    PartyParticipant withImage = participant(2L);
+    PartyParticipant withoutImage = participant(3L);
+    User imageUser = user(2L, "야식요정", "profile/2/abc.jpg");
+    User noImageUser = user(3L, "새벽배송", null);
+
+    given(deliveryPartyRepository.findById(10L)).willReturn(Optional.of(party));
+    given(partyParticipantRepository.existsByPartyIdAndUserIdAndStatus(10L, 1L, PartyParticipantStatus.JOINED))
+        .willReturn(true);
+    given(partyParticipantRepository.findAllByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
+        .willReturn(List.of(currentUser, withImage, withoutImage));
+    given(userRepository.findAllByIdIn(List.of(2L, 3L))).willReturn(List.of(imageUser, noImageUser));
+    given(reviewRepository.findAllByPartyIdAndReviewerId(10L, 1L)).willReturn(List.of());
+    given(imageStorageService.resolveViewUrl("profile/2/abc.jpg"))
+        .willReturn("https://tdd-public.s3.ap-northeast-2.amazonaws.com/profile/2/abc.jpg");
+
+    ReviewTargetListResponse response = reviewService.getReviewTargets(1L, 10L);
+
+    // 사진이 있으면 base URL을 합친 절대주소로, 없으면 null 그대로 내려간다.
+    assertThat(response.targets())
+        .extracting("userId", "profileImageUrl")
+        .containsExactly(
+            tuple(2L, "https://tdd-public.s3.ap-northeast-2.amazonaws.com/profile/2/abc.jpg"),
+            tuple(3L, null)
+        );
   }
 
   @Test
@@ -187,10 +221,14 @@ class ReviewServiceImplTest {
   }
 
   private User user(Long id, String nickname) {
+    return user(id, nickname, null);
+  }
+
+  private User user(Long id, String nickname, String profileImageKey) {
     User user = org.mockito.Mockito.mock(User.class);
     given(user.getId()).willReturn(id);
     given(user.getNickname()).willReturn(nickname);
-    given(user.getProfileImageUrl()).willReturn(null);
+    given(user.getProfileImageUrl()).willReturn(profileImageKey);
     return user;
   }
 
