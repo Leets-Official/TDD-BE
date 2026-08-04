@@ -8,12 +8,15 @@ import com.leets.tdd.chat.dto.ChatMessageRequest;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
+import com.leets.tdd.user.domain.User;
+import com.leets.tdd.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -40,6 +43,12 @@ class ChatServiceTest {
 
     @Mock
     private ChatAuthValidator chatAuthValidator;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private SimpMessagingTemplate messagingTemplate;
 
     @InjectMocks
     private ChatService chatService;
@@ -74,6 +83,9 @@ class ChatServiceTest {
         // chatAuthValidator는 기본 mock이라 아무것도 던지지 않음 = 통과
         when(chatMessageRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        // 응답에 발신자 닉네임을 채우기 위해 발신자를 조회하므로 mock 설정
+        when(userRepository.findById(CREATOR_ID))
+                .thenReturn(Optional.of(userWithNickname("테스터")));
 
         chatService.saveMessage(
                 PARTY_ID,
@@ -107,6 +119,31 @@ class ChatServiceTest {
         verify(chatRoomRepository, never()).save(any(ChatRoom.class));
     }
 
+    @Test
+    @DisplayName("채팅방이 있으면 시스템 메시지를 저장하고 브로드캐스트한다")
+    void sendSystemMessage_roomExists_savedAndBroadcast() {
+        when(chatRoomRepository.findByPartyId(PARTY_ID))
+                .thenReturn(Optional.of(new ChatRoom(PARTY_ID)));
+        when(chatMessageRepository.save(any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        chatService.sendSystemMessage(PARTY_ID, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
+
+        verify(chatMessageRepository, times(1)).save(any());
+        verify(messagingTemplate, times(1)).convertAndSend(any(String.class), any(Object.class));
+    }
+
+    @Test
+    @DisplayName("채팅방이 없으면 시스템 메시지를 저장하지 않고 조용히 넘어간다")
+    void sendSystemMessage_roomNotExists_skips() {
+        when(chatRoomRepository.findByPartyId(PARTY_ID)).thenReturn(Optional.empty());
+
+        chatService.sendSystemMessage(PARTY_ID, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
+
+        verify(chatMessageRepository, never()).save(any());
+        verify(messagingTemplate, never()).convertAndSend(any(String.class), any(Object.class));
+    }
+
     private DeliveryParty partyWithStatus(PartyStatus status) {
         try {
             var constructor = DeliveryParty.class.getDeclaredConstructor();
@@ -117,6 +154,18 @@ class ChatServiceTest {
             return party;
         } catch (ReflectiveOperationException exception) {
             throw new RuntimeException("테스트용 DeliveryParty 생성 실패", exception);
+        }
+    }
+
+    private User userWithNickname(String nickname) {
+        try {
+            var constructor = User.class.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            User user = constructor.newInstance();
+            ReflectionTestUtils.setField(user, "nickname", nickname);
+            return user;
+        } catch (ReflectiveOperationException exception) {
+            throw new RuntimeException("테스트용 User 생성 실패", exception);
         }
     }
 }
