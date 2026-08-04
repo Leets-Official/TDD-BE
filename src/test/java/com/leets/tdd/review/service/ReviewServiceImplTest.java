@@ -71,7 +71,7 @@ class ReviewServiceImplTest {
     given(partyParticipantRepository.findAllByPartyIdAndStatus(10L, PartyParticipantStatus.JOINED))
         .willReturn(List.of(currentUser, target));
     given(userRepository.findAllByIdIn(List.of(2L))).willReturn(List.of(user));
-    given(reviewRepository.existsByPartyIdAndReviewerIdAndRevieweeId(10L, 1L, 2L)).willReturn(false);
+    given(reviewRepository.findAllByPartyIdAndReviewerId(10L, 1L)).willReturn(List.of());
 
     ReviewTargetListResponse response = reviewService.getReviewTargets(1L, 10L);
 

@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -72,13 +73,18 @@ public class ReviewServiceImpl implements ReviewService {
         .filter(userId -> !userId.equals(currentUserId))
         .toList();
     Map<Long, User> users = usersById(targetUserIds);
+    // 대상마다 exists 쿼리를 던지면 참여자 수만큼 조회가 나가므로, 내가 이 팟에서 쓴 후기를
+    // 한 번에 읽어 대상 id 집합으로 비교합니다.
+    Set<Long> reviewedUserIds = reviewRepository.findAllByPartyIdAndReviewerId(partyId, currentUserId).stream()
+        .map(Review::getRevieweeId)
+        .collect(Collectors.toSet());
 
     // 본인은 평가 대상에서 제외하고, 이미 쓴 후기는 reviewed=true로 표시합니다.
+    // 조회되지 않는 사용자는 목록에서 빼서, 데이터가 어긋나도 조회 전체가 실패하지 않게 합니다.
     List<ReviewTargetResponse> targets = targetUserIds.stream()
-        .map(userId -> ReviewTargetResponse.from(
-            users.get(userId),
-            reviewRepository.existsByPartyIdAndReviewerIdAndRevieweeId(partyId, currentUserId, userId)
-        ))
+        .map(users::get)
+        .filter(Objects::nonNull)
+        .map(user -> ReviewTargetResponse.from(user, reviewedUserIds.contains(user.getId())))
         .toList();
     return new ReviewTargetListResponse(partyId, targets);
   }
@@ -130,9 +136,10 @@ public class ReviewServiceImpl implements ReviewService {
     List<ReceivedReviewResponse> responses = items.stream()
         .map(review -> ReceivedReviewResponse.from(
             review,
-            parties.get(review.getPartyId()).getTitle(),
+            partyTitleOf(parties, review.getPartyId()),
             tagIdsByReviewId.getOrDefault(review.getId(), List.of()).stream()
                 .map(labelsByTagId::get)
+                .filter(Objects::nonNull)
                 .toList()
         ))
         .toList();
@@ -205,8 +212,14 @@ public class ReviewServiceImpl implements ReviewService {
       case 3 -> BigDecimal.ZERO;
       case 2 -> new BigDecimal("-0.2");
       case 1 -> new BigDecimal("-0.5");
-      default -> throw new ReviewException(ReviewErrorCode.REVIEW_TAG_NOT_FOUND);
+      default -> throw new ReviewException(ReviewErrorCode.INVALID_RATING);
     };
+  }
+
+  // 후기는 남아 있는데 배달팟을 못 찾는 경우에도 목록 조회 전체가 실패하지 않도록 제목을 비웁니다.
+  private String partyTitleOf(Map<Long, DeliveryParty> parties, Long partyId) {
+    DeliveryParty party = parties.get(partyId);
+    return party == null ? null : party.getTitle();
   }
 
   private Map<Long, User> usersById(List<Long> userIds) {
