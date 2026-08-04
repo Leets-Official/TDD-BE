@@ -176,7 +176,7 @@ public class ReviewServiceImpl implements ReviewService {
   }
 
   private void validateCompleted(DeliveryParty party) {
-    if (party.getStatus() != PartyStatus.COMPLETED) {
+    if (party.getStatus() != PartyStatus.DELIVERED && party.getStatus() != PartyStatus.SETTLED) {
       throw new ReviewException(ReviewErrorCode.PARTY_NOT_COMPLETED);
     }
   }

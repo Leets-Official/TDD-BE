@@ -23,6 +23,7 @@ public enum PartyErrorCode implements ErrorCode {
     PARTICIPANT_LIST_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "참여자 목록 조회에 실패했습니다."),
     NOT_OWNER(HttpStatus.FORBIDDEN, "배달팟을 수정할 권한이 없습니다."),
     CLOSE_FORBIDDEN(HttpStatus.FORBIDDEN, "배달팟 모집을 마감할 권한이 없습니다."),
+    CLOSE_MIN_PARTICIPANTS(HttpStatus.BAD_REQUEST, "참여 인원이 2명 이상일 때만 모집을 마감할 수 있습니다."),
     ALREADY_CLOSED(HttpStatus.BAD_REQUEST, "이미 모집이 마감된 배달팟입니다."),
     CLOSE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달팟 모집 마감에 실패했습니다."),
     INVALID_PARTY_STATUS(
@@ -34,7 +35,7 @@ public enum PartyErrorCode implements ErrorCode {
     SEARCH_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달팟 검색에 실패했습니다."),
     COMPLETE_FORBIDDEN(HttpStatus.FORBIDDEN, "배달 완료를 처리할 권한이 없습니다."),
     COMPLETE_NOT_ORDERED(HttpStatus.BAD_REQUEST, "주문이 완료된 배달팟만 배달 완료 처리할 수 있습니다."),
-    ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "이미 배달이 완료된 배달팟입니다."),
+    ALREADY_DELIVERED(HttpStatus.BAD_REQUEST, "이미 배달이 완료된 배달팟입니다."),
     COMPLETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "배달 완료 처리에 실패했습니다."),
     ORDER_FORBIDDEN(HttpStatus.FORBIDDEN, "주문 완료를 처리할 권한이 없습니다."),
     ORDER_NOT_CLOSED(HttpStatus.BAD_REQUEST, "모집이 마감된 배달팟만 주문 완료할 수 있습니다."),

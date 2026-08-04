@@ -52,7 +52,7 @@ public interface PartyParticipantRepository extends JpaRepository<PartyParticipa
          AND (:orderExpectedTo IS NULL OR dp.order_expected_at <= :orderExpectedTo)
          AND (:status = 'ALL'
               OR (:status = 'ONGOING' AND dp.status IN ('RECRUITING', 'CLOSED', 'ORDERED'))
-              OR (:status = 'COMPLETED' AND dp.status IN ('COMPLETED', 'CANCELED')))
+              OR (:status = 'COMPLETED' AND dp.status IN ('DELIVERED', 'SETTLED', 'CANCELED')))
        ORDER BY dp.created_at DESC
       """, nativeQuery = true)
   List<MyDeliveryPartyProjection> findMyDeliveryParties(

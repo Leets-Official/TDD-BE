@@ -243,9 +243,14 @@ public class DeliveryPartyService {
         }
         publishNotification(deliveryParty, DeliveryPartyNotificationType.PARTICIPANT_JOINED);
 
+        long updatedParticipants = currentParticipants(partyId);
+        if (updatedParticipants >= deliveryParty.getMaxParticipants()) {
+            closeParty(deliveryParty, partyId);
+        }
+
         return new JoinDeliveryPartyResponse(
                 partyId,
-                currentParticipants + 1,
+                updatedParticipants,
                 deliveryParty.getMaxParticipants()
         );
     }
@@ -432,8 +437,8 @@ public class DeliveryPartyService {
             throw new PartyException(PartyErrorCode.COMPLETE_FORBIDDEN);
         }
 
-        if (deliveryParty.getStatus() == PartyStatus.COMPLETED) {
-            throw new PartyException(PartyErrorCode.ALREADY_COMPLETED);
+        if (deliveryParty.getStatus() == PartyStatus.DELIVERED) {
+            throw new PartyException(PartyErrorCode.ALREADY_DELIVERED);
         }
 
         if (deliveryParty.getStatus() != PartyStatus.ORDERED) {
@@ -459,13 +464,20 @@ public class DeliveryPartyService {
         if (deliveryParty.getStatus() != PartyStatus.RECRUITING) {
             throw new PartyException(PartyErrorCode.ALREADY_CLOSED);
         }
-        deliveryParty.close();
-        chatService.createChatRoom(partyId);
-        publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
+        if (currentParticipants(partyId) < 2) {
+            throw new PartyException(PartyErrorCode.CLOSE_MIN_PARTICIPANTS);
+        }
+        closeParty(deliveryParty, partyId);
         return new CloseDeliveryPartyResponse(
                 deliveryParty.getId() == null ? partyId : deliveryParty.getId(),
                 deliveryParty.getStatus().name()
         );
+    }
+
+    private void closeParty(DeliveryParty deliveryParty, Long partyId) {
+        deliveryParty.close();
+        chatService.createChatRoom(partyId);
+        publishNotification(deliveryParty, DeliveryPartyNotificationType.RECRUITMENT_CLOSED);
     }
 
     @Transactional
