@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.chat.service.ChatService;
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.party.domain.FoodCategory;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantRole;
@@ -67,6 +68,9 @@ class DeliveryPartyServiceTest {
 
     @Mock
     private ChatService chatService;
+
+    @Mock
+    private ImageStorageService imageStorageService;
 
     @InjectMocks
     private DeliveryPartyService deliveryPartyService;
@@ -135,9 +139,11 @@ class DeliveryPartyServiceTest {
                 "",
                 LocalDateTime.now()
         );
-        leader.updateProfile("방장", "https://example.com/leader.png");
+        leader.updateProfile("방장", "profiles/1/leader.jpg");
         ReflectionTestUtils.setField(leader, "id", 1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(leader));
+        when(imageStorageService.resolveViewUrl("profiles/1/leader.jpg"))
+                .thenReturn("https://cdn.example.com/profiles/1/leader.jpg");
         ReflectionTestUtils.setField(deliveryParty, "dormitory", "1기숙사");
 
 
@@ -153,7 +159,8 @@ class DeliveryPartyServiceTest {
         assertThat(response.getStatus())
                 .isEqualTo("RECRUITING");
         assertThat(response.getLeaderNickname()).isEqualTo("방장");
-        assertThat(response.getLeaderProfileImage()).isEqualTo("https://example.com/leader.png");
+        assertThat(response.getLeaderProfileImage())
+                .isEqualTo("https://cdn.example.com/profiles/1/leader.jpg");
         assertThat(response.getLeaderMannerTemperature()).isEqualByComparingTo("3.0");
         assertThat(response.getDormitory()).isEqualTo("1기숙사");
     }
@@ -179,6 +186,8 @@ class DeliveryPartyServiceTest {
         DeliveryParty deliveryParty = party(10L, 1L, PartyStatus.RECRUITING);
         User owner = new User("owner@test.com", "방장", "password", "", LocalDateTime.now());
         User member = new User("member@test.com", "참여자", "password", "", LocalDateTime.now());
+        owner.updateProfile("방장", "profiles/1/owner.jpg");
+        member.updateProfile("참여자", "profiles/2/member.jpg");
         ReflectionTestUtils.setField(owner, "id", 1L);
         ReflectionTestUtils.setField(member, "id", 2L);
         PartyParticipant joinedOwner = new PartyParticipant(
@@ -192,6 +201,10 @@ class DeliveryPartyServiceTest {
                 .thenReturn(java.util.List.of(joinedMember, joinedOwner));
         when(userRepository.findAllByIdIn(java.util.List.of(2L, 1L)))
                 .thenReturn(java.util.List.of(owner, member));
+        when(imageStorageService.resolveViewUrl("profiles/1/owner.jpg"))
+                .thenReturn("https://cdn.example.com/profiles/1/owner.jpg");
+        when(imageStorageService.resolveViewUrl("profiles/2/member.jpg"))
+                .thenReturn("https://cdn.example.com/profiles/2/member.jpg");
 
         PartyParticipantListResponse response = deliveryPartyService.getPartyParticipants(10L);
 
@@ -200,6 +213,10 @@ class DeliveryPartyServiceTest {
         assertThat(response.participants().get(1).role()).isEqualTo("MEMBER");
         assertThat(response.participants().get(0).mannerTemperature()).isEqualByComparingTo("3.0");
         assertThat(response.participants().get(1).mannerTemperature()).isEqualByComparingTo("3.0");
+        assertThat(response.participants().get(0).profileImage())
+                .isEqualTo("https://cdn.example.com/profiles/1/owner.jpg");
+        assertThat(response.participants().get(1).profileImage())
+                .isEqualTo("https://cdn.example.com/profiles/2/member.jpg");
     }
 
     @Test
