@@ -2,6 +2,7 @@ package com.leets.tdd.party.service;
 
 import com.leets.tdd.chat.domain.MessageType;
 import com.leets.tdd.chat.service.ChatService;
+import com.leets.tdd.global.storage.ImageStorageService;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyParticipant;
 import com.leets.tdd.party.domain.PartyParticipantRole;
@@ -56,6 +57,7 @@ public class DeliveryPartyService {
     private final PartyParticipantRepository partyParticipantRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatService chatService;
+    private final ImageStorageService imageStorageService;
 
 
     // 배달팟 생성 API
@@ -168,7 +170,11 @@ public class DeliveryPartyService {
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTY_NOT_FOUND));
         User leader = userRepository.findById(deliveryParty.getCreatorId())
                 .orElseThrow(() -> new PartyException(PartyErrorCode.PARTICIPANT_LIST_FAILED));
-        return new DeliveryPartyDetailResponse(deliveryParty, leader);
+        return new DeliveryPartyDetailResponse(
+                deliveryParty,
+                leader,
+                resolveProfileImageUrl(leader.getProfileImageUrl())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -207,10 +213,20 @@ public class DeliveryPartyService {
         return new PartyParticipantResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                resolveProfileImageUrl(user.getProfileImageUrl()),
                 user.getMannerTemperature(),
                 role
         );
+    }
+
+    private String resolveProfileImageUrl(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        if (key.startsWith("http://") || key.startsWith("https://")) {
+            return key;
+        }
+        return imageStorageService.resolveViewUrl(key);
     }
 
     @Transactional
