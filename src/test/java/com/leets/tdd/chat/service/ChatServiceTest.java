@@ -5,6 +5,7 @@ import com.leets.tdd.chat.repository.ChatMessageRepository;
 import com.leets.tdd.chat.repository.ChatRoomRepository;
 import com.leets.tdd.chat.domain.MessageType;
 import com.leets.tdd.chat.dto.ChatMessageRequest;
+import com.leets.tdd.chat.dto.ChatMessageResponse;
 import com.leets.tdd.party.domain.DeliveryParty;
 import com.leets.tdd.party.domain.PartyStatus;
 import com.leets.tdd.party.repository.DeliveryPartyRepository;
@@ -49,6 +50,9 @@ class ChatServiceTest {
 
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+
+    @Mock
+    private ChatMessageResponseMapper chatMessageResponseMapper;
 
     @InjectMocks
     private ChatService chatService;
@@ -126,11 +130,15 @@ class ChatServiceTest {
                 .thenReturn(Optional.of(new ChatRoom(PARTY_ID)));
         when(chatMessageRepository.save(any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        ChatMessageResponse mappedResponse = new ChatMessageResponse(
+                1L, MessageType.DELIVERY_ARRIVED, null, null, "배달이 도착했어요!", null, null);
+        when(chatMessageResponseMapper.toResponse(any())).thenReturn(mappedResponse);
 
         chatService.sendSystemMessage(PARTY_ID, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
 
         verify(chatMessageRepository, times(1)).save(any());
-        verify(messagingTemplate, times(1)).convertAndSend(any(String.class), any(Object.class));
+        verify(messagingTemplate, times(1))
+                .convertAndSend("/topic/parties/" + PARTY_ID + "/chat", (Object) mappedResponse);
     }
 
     @Test
@@ -141,7 +149,7 @@ class ChatServiceTest {
         chatService.sendSystemMessage(PARTY_ID, MessageType.DELIVERY_ARRIVED, "배달이 도착했어요!");
 
         verify(chatMessageRepository, never()).save(any());
-        verify(messagingTemplate, never()).convertAndSend(any(String.class), any(Object.class));
+        verify(messagingTemplate, never()).convertAndSend(any(String.class), (Object) any());
     }
 
     private DeliveryParty partyWithStatus(PartyStatus status) {
