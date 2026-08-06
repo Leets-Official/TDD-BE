@@ -43,6 +43,7 @@ public class ChatService {
     private final ChatAuthValidator chatAuthValidator;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatMessageResponseMapper chatMessageResponseMapper;
 
     /**
      * 배달팟에 대응하는 채팅방을 생성한다.
@@ -93,7 +94,7 @@ public class ChatService {
         String senderNickname = userRepository.findById(senderId)
                 .map(User::getNickname)
                 .orElse(null);
-        return ChatMessageResponse.from(saved, senderNickname);
+        return chatMessageResponseMapper.toResponse(saved, senderNickname);
     }
 
     /**
@@ -114,7 +115,7 @@ public class ChatService {
             // 시스템 메시지는 senderId가 없어 닉네임도 없다(닉네임 없는 from 사용).
             messagingTemplate.convertAndSend(
                     CHAT_TOPIC_FORMAT.formatted(partyId),
-                    ChatMessageResponse.from(saved));
+                    chatMessageResponseMapper.toResponse(saved));
         } catch (Exception e) {
             // 채팅 알림 실패가 배달팟 상태 전환까지 롤백시키지 않도록 예외를 삼키고 로그만 남긴다.
             log.warn("chat.system_message.failed partyId={}, type={}", partyId, type, e);
@@ -151,7 +152,7 @@ public class ChatService {
 
         // DB에서는 최신순으로 가져오지만, 화면에는 오래된 메시지부터 보여야 하므로 순서를 뒤집는다
         return messages.reversed().stream()
-                .map(message -> ChatMessageResponse.from(
+                .map(message -> chatMessageResponseMapper.toResponse(
                         message,
                         message.getSenderId() == null ? null : nicknameById.get(message.getSenderId())
                 ))
