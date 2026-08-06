@@ -24,15 +24,11 @@ public class DeliveryPartyDetailResponse {
     private final String status;
     private final LocalDateTime createdAt;
 
-    public DeliveryPartyDetailResponse(
-            DeliveryParty deliveryParty,
-            User leader,
-            String leaderProfileImage
-    ) {
+    public DeliveryPartyDetailResponse(DeliveryParty deliveryParty, User leader) {
         this.id = deliveryParty.getId();
         this.creatorId = deliveryParty.getCreatorId();
         this.leaderNickname = leader.getNickname();
-        this.leaderProfileImage = leaderProfileImage;
+        this.leaderProfileImage = leader.getProfileImageUrl();
         this.leaderMannerTemperature = leader.getMannerTemperature();
         this.dormitory = deliveryParty.getDormitory();
         this.foodCategoryId = deliveryParty.getFoodCategoryId();
